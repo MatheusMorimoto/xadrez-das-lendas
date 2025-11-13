@@ -34,22 +34,35 @@ pygame.display.set_caption("Tabuleiro de Xadrez")
 WHITE = (255, 255, 255)
 LIGHT_GRAY = (200, 200, 200)
 BLACK = (0, 0, 0)
+GREEN = (0, 255, 0)
+MENU_BACKGROUND_COLOR = (0, 0, 50)  # AZUL MARINHO ESCURO
+GAME_BACKGROUND_COLOR = (180, 180, 180) # CINZA CLARO
+BUTTON_COLOR = (50, 150, 50) # Cor do botão
+BUTTON_HOVER_COLOR = (80, 180, 80) # Cor do botão ao passar o mouse
 
-# Lista de peças
-# Posições configuradas para um cenário de captura do rei
-pieces = [
-    Piece("assets/rainha_branca.png", 1, 4, "rainha", "branca"), # Posição e7
-    Piece("assets/rei_branco.png", 2, 3, "rei", "branca"),       # Posição d6
-    Piece("assets/cavalo_branco.png", 3, 6, "cavalo", "branca"), # Posição g5
-    Piece("assets/rei_preto.png", 0, 7, "rei", "preta"),        # Posição h8
-]
+# --- VARIÁVEIS DE ESTADO E INICIALIZAÇÃO DE PEÇAS ---
 
+# Lista inicial de peças (configuração de xeque-mate)
+def create_initial_pieces():
+    return [
+        Piece("assets/rainha_branca.png", 1, 4, "rainha", "branca"), # Posição e7
+        Piece("assets/rei_branco.png", 2, 3, "rei", "branca"),      # Posição d6
+        Piece("assets/cavalo_branco.png", 3, 6, "cavalo", "branca"), # Posição g5
+        Piece("assets/rei_preto.png", 0, 7, "rei", "preta"),         # Posição h8
+    ]
+
+pieces = create_initial_pieces()
 selected_piece = None
 valid_moves = []
 checkmate_message = None
 
+# Estados do Jogo
+STATE_MENU = "menu"
+STATE_GAME = "playing"
+game_state = STATE_MENU # O jogo começa no menu
 
-# Funções de desenho
+# --- FUNÇÕES DE DESENHO ---
+
 def draw_board():
     pygame.draw.rect(screen, BLACK, (MARGIN - 2, MARGIN - 2, BOARD_SIZE + 4, BOARD_SIZE + 4), 2)
     for row in range(8):
@@ -80,12 +93,62 @@ def draw_valid_moves(moves):
 
 def draw_checkmate_message(message):
     if message:
-        text = font.render(message, True, (200, 0, 0))
-        rect = text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-        pygame.draw.rect(screen, (255, 255, 255), rect.inflate(20, 20))
-        screen.blit(text, rect)
+        background_surface = pygame.Surface((WIDTH, HEIGHT))
+        background_surface.fill(BLACK) 
+        background_surface.set_alpha(180) 
+        screen.blit(background_surface, (0, 0))
 
-# Funções de lógica
+        lines = message.split('! ')
+        
+        title_font = pygame.font.SysFont("Arial", 48, bold=True)
+        title_text = title_font.render(lines[0] + "!", True, (255, 215, 0)) 
+        title_rect = title_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 40))
+        screen.blit(title_text, title_rect)
+        
+        if len(lines) > 1:
+            message_font = pygame.font.SysFont("Arial", 36)
+            message_text = message_font.render(lines[1], True, (200, 0, 0)) 
+            message_rect = message_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30))
+            screen.blit(message_text, message_rect)
+
+# FUNÇÃO DE DESENHO DO MENU COM BOTÃO
+def draw_start_menu(screen):
+    """Desenha a tela de início do jogo com o fundo do menu e um botão clicável."""
+    screen.fill(MENU_BACKGROUND_COLOR) 
+    
+    # 1. Título
+    title_font = pygame.font.SysFont("Arial", 72)
+    title_text = title_font.render("XADREZ PROJETO", True, WHITE)
+    title_rect = title_text.get_rect(center=(WIDTH // 2, HEIGHT // 3))
+    screen.blit(title_text, title_rect)
+    
+    # 2. Botão "Iniciar Jogo"
+    button_width = 250
+    button_height = 70
+    button_x = (WIDTH - button_width) // 2
+    button_y = HEIGHT // 3 * 2 - button_height // 2 # Centraliza o botão verticalmente
+
+    # Cria o retângulo do botão
+    start_button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
+
+    # Verifica se o mouse está sobre o botão para mudar a cor
+    mouse_pos = pygame.mouse.get_pos()
+    current_button_color = BUTTON_COLOR
+    if start_button_rect.collidepoint(mouse_pos):
+        current_button_color = BUTTON_HOVER_COLOR
+
+    pygame.draw.rect(screen, current_button_color, start_button_rect, border_radius=10) # Desenha o botão
+    
+    button_font = pygame.font.SysFont("Arial", 36)
+    button_text = button_font.render("INICIAR JOGO", True, WHITE)
+    button_text_rect = button_text.get_rect(center=start_button_rect.center)
+    screen.blit(button_text, button_text_rect)
+
+    return start_button_rect # Retorna o retângulo do botão para uso na detecção de cliques
+
+
+# --- FUNÇÕES DE LÓGICA (Permanecem inalteradas) ---
+
 def get_valid_moves(piece, pieces):
     moves = []
 
@@ -99,10 +162,10 @@ def get_valid_moves(piece, pieces):
                     target_piece = next((p for p in pieces if p.row == r and p.col == c), None)
                     if target_piece:
                         if target_piece.cor != piece.cor:
-                            moves.append((r, c))  # Pode capturar
+                            moves.append((r, c))
                         break
                     else:
-                        moves.append((r, c))  # Casa vazia
+                        moves.append((r, c))
                 else:
                     break
 
@@ -171,53 +234,72 @@ def is_checkmate(king, pieces):
     # Se nenhum movimento legal tira o rei do xeque, é xeque-mate
     return True
 
-# Loop principal
+# --- LOOP PRINCIPAL DO JOGO ---
+
 running = True
+start_button_rect = None # Variável para armazenar o retângulo do botão
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
-        elif event.type == pygame.MOUSEBUTTONDOWN and not checkmate_message:
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            col = (mouse_x - MARGIN) // CELL_SIZE
-            row = (mouse_y - MARGIN) // CELL_SIZE
+        if game_state == STATE_MENU:
+            # Lógica de input para a Tela de Início (clique do mouse no botão)
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if start_button_rect and start_button_rect.collidepoint(event.pos):
+                    game_state = STATE_GAME # Mudar o estado para o jogo
+        
+        elif game_state == STATE_GAME:
+            # Lógica de input para o Jogo (Seu código original de clique)
+            if event.type == pygame.MOUSEBUTTONDOWN and not checkmate_message:
+                mouse_x, mouse_y = pygame.mouse.get_pos()
+                col = (mouse_x - MARGIN) // CELL_SIZE
+                row = (mouse_y - MARGIN) // CELL_SIZE
 
-            if 0 <= row < 8 and 0 <= col < 8:
-                if selected_piece:
-                    if (row, col) in valid_moves:
-                        # Move a peça selecionada
-                        captured_piece = next((p for p in pieces if p.row == row and p.col == col and p.cor != selected_piece.cor), None)
-                        selected_piece.row = row
-                        selected_piece.col = col
+                if 0 <= row < 8 and 0 <= col < 8:
+                    if selected_piece:
+                        if (row, col) in valid_moves:
+                            captured_piece = next((p for p in pieces if p.row == row and p.col == col and p.cor != selected_piece.cor), None)
+                            selected_piece.row = row
+                            selected_piece.col = col
 
-                        # Remove a peça capturada, se houver
-                        if captured_piece:
-                            pieces.remove(captured_piece)
+                            if captured_piece:
+                                pieces.remove(captured_piece)
 
-                        # Verifica se o movimento resultou em xeque-mate
-                        black_king = next((p for p in pieces if p.tipo == "rei" and p.cor == "preta"), None)
-                        if black_king and is_checkmate(black_king, pieces):
-                            checkmate_message = "Xeque-mate! Fim de jogo."
+                            black_king = next((p for p in pieces if p.tipo == "rei" and p.cor == "preta"), None)
+                            if black_king and is_checkmate(black_king, pieces):
+                                checkmate_message = "Primeira Fase: Beijo da Morte! Xeque-mate. Fim de jogo." 
 
-                    selected_piece = None
-                    valid_moves = []
-                else:
-                    for piece in pieces:
-                        if piece.row == row and piece.col == col:
-                            selected_piece = piece
-                            valid_moves = get_valid_moves(piece, pieces)
-                            break
+                            selected_piece = None
+                            valid_moves = []
+                        else:
+                            selected_piece = None
+                            valid_moves = []
+                    else:
+                        for piece in pieces:
+                            if piece.row == row and piece.col == col:
+                                selected_piece = piece
+                                valid_moves = get_valid_moves(piece, pieces)
+                                break
 
-    screen.fill((180, 180, 180))
-    draw_board()
-    draw_coordinates()
-    draw_valid_moves(valid_moves)
+    # --- Bloco de Desenho ---
+    
+    if game_state == STATE_MENU:
+        start_button_rect = draw_start_menu(screen) # Armazena o retângulo do botão retornado
+        
+    elif game_state == STATE_GAME:
+        screen.fill(GAME_BACKGROUND_COLOR) 
+        
+        draw_board()
+        draw_coordinates()
+        draw_valid_moves(valid_moves)
 
-    for piece in pieces:
-        piece.draw(screen, MARGIN, MARGIN)
+        for piece in pieces:
+            piece.draw(screen, MARGIN, MARGIN)
 
-    draw_checkmate_message(checkmate_message)
+        draw_checkmate_message(checkmate_message)
+
     pygame.display.flip()
 
 pygame.quit()
