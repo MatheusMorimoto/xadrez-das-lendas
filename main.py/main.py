@@ -573,15 +573,15 @@ while running:
                     else:
                         for piece in pieces:
                             if piece.row == row and piece.col == col:
-                                if piece.cor == "branca":
-                                    selected_piece = piece
-                                    all_moves = get_valid_moves(piece, pieces)
-                                    king = next((p for p in pieces if p.tipo == "rei" and p.cor == piece.cor), None)
-                                    valid_moves = [
-                                        move for move in all_moves
-                                        if king and not would_king_be_in_check(king, pieces, piece, move[0], move[1])
-                                    ]
-                                    break
+                                # Permitir seleção de peças brancas E pretas
+                                selected_piece = piece
+                                all_moves = get_valid_moves(piece, pieces)
+                                king = next((p for p in pieces if p.tipo == "rei" and p.cor == piece.cor), None)
+                                valid_moves = [
+                                    move for move in all_moves
+                                    if king and not would_king_be_in_check(king, pieces, piece, move[0], move[1])
+                                ]
+                                break
     
     # Desenho
     if game_state == STATE_MENU:
