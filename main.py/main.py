@@ -36,6 +36,8 @@ class Piece:
         self.cor = cor  # "branca" ou "preta"
 
     def draw(self, screen, offset_x, offset_y):
+        if not hasattr(self, 'image') or self.image is None:
+            return
         x = self.col * 80 + offset_x
         y = self.row * 80 + offset_y
         screen.blit(self.image, (x, y))
@@ -156,6 +158,8 @@ MENU_BACKGROUND_COLOR = (0, 0, 50)
 GAME_BACKGROUND_COLOR = (180, 180, 180) 
 BUTTON_COLOR = (50, 150, 50) 
 BUTTON_HOVER_COLOR = (80, 180, 80) 
+
+RESTART_BUTTON_RECT = pygame.Rect(WIDTH // 2 - 125, HEIGHT // 2 + 80, 250, 60)
 
 # --- VARIÁVEIS DE ESTADO E INICIALIZAÇÃO DE PEÇAS ---
 
@@ -419,7 +423,7 @@ def play_video():
 
 # Função de desenho da mensagem de fim de jogo (AJUSTADA)
 def draw_checkmate_message(message, phase_number=1):
-    global game_state, video_start_time # Adicionada para mudar o estado após a Fase 1
+    global video_start_time 
     
     if message:
         background_surface = pygame.Surface((WIDTH, HEIGHT))
@@ -440,9 +444,13 @@ def draw_checkmate_message(message, phase_number=1):
             message_rect = message_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30))
             screen.blit(message_text, message_rect)
             
-        # Adicionar o botão para ir para o menu de vitória APENAS SE A MENSAGEM FOR DA FASE 1
-        if phase_number == 1 and game_state == STATE_GAME:
-            game_state = STATE_VICTORY_MENU # Muda para o menu de vitória
+        if phase_number == 2:
+            mouse_pos = pygame.mouse.get_pos()
+            color = BUTTON_HOVER_COLOR if RESTART_BUTTON_RECT.collidepoint(mouse_pos) else BUTTON_COLOR
+            pygame.draw.rect(screen, color, RESTART_BUTTON_RECT, border_radius=10)
+            btn_text = font.render("VOLTAR AO MENU", True, WHITE)
+            btn_rect = btn_text.get_rect(center=RESTART_BUTTON_RECT.center)
+            screen.blit(btn_text, btn_rect)
 
 # FUNÇÃO DE DESENHO DO MENU COM BOTÃO (MANTIDA/AJUSTADA)
 def draw_start_menu(screen, title_text, button_text):
@@ -524,6 +532,7 @@ def is_checkmate(king, pieces):
 running = True
 start_button_rect = None
 phase2_button_rect = None
+video_button_rect, skip_button_rect = None, None
 
 while running:
     for event in pygame.event.get():
@@ -540,6 +549,11 @@ while running:
             elif game_state == STATE_PHASE2_START:
                 if phase2_button_rect and phase2_button_rect.collidepoint(mouse_x, mouse_y):
                     start_phase(2)
+            
+            elif game_state == STATE_GAME_PHASE2 and checkmate_message:
+                if RESTART_BUTTON_RECT.collidepoint(mouse_x, mouse_y):
+                    game_state = STATE_MENU
+                    checkmate_message = None
             
             elif game_state in [STATE_GAME, STATE_GAME_PHASE2] and not checkmate_message:
                 col = (mouse_x - MARGIN) // CELL_SIZE
@@ -562,6 +576,10 @@ while running:
                             if enemy_king and is_checkmate(enemy_king, pieces):
                                 if game_state == STATE_GAME:
                                     checkmate_message = "Primeira Fase: Beijo da Morte! Vitória! Prepare-se para a Fase 2."
+                                    # A mudança de estado agora acontece aqui, após o processamento da jogada
+                                    pygame.display.flip() # Garante que a mensagem apareça
+                                    pygame.time.delay(2000) # Pequena pausa para ler a mensagem
+                                    game_state = STATE_VICTORY_MENU
                                 else:
                                     checkmate_message = "Segunda Fase: Vitória! Fim de jogo."
                             
@@ -582,6 +600,13 @@ while running:
                                     if king and not would_king_be_in_check(king, pieces, piece, move[0], move[1])
                                 ]
                                 break
+            
+            elif game_state == STATE_VICTORY_MENU:
+                if video_button_rect and video_button_rect.collidepoint(mouse_x, mouse_y):
+                    play_video()
+                    game_state = STATE_PHASE2_START
+                elif skip_button_rect and skip_button_rect.collidepoint(mouse_x, mouse_y):
+                    game_state = STATE_PHASE2_START
     
     # Desenho
     if game_state == STATE_MENU:
@@ -593,24 +618,12 @@ while running:
     elif game_state == STATE_VICTORY_MENU:
         phase3_button_rect = draw_start_menu(screen, "Vitoria!", "VOLTAR AO MENU PRINCIPAL")
         video_button_rect, skip_button_rect = draw_victory_menu()
-        
-        # Verificar cliques nos botões
-        for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_x, mouse_y = event.pos
-                
-                if video_button_rect.collidepoint(mouse_x, mouse_y):
-                    print("Botão de vídeo clicado!")
-                    play_video()
-                    game_state = STATE_PHASE2_START
-                elif skip_button_rect.collidepoint(mouse_x, mouse_y):
-                    game_state = STATE_PHASE2_START
     
     elif game_state in [STATE_GAME, STATE_GAME_PHASE2]:
         screen.fill(GAME_BACKGROUND_COLOR)
         
         draw_board()
-        draw_coordinates
+        draw_coordinates()
         draw_valid_moves(valid_moves)
         
         for piece in pieces:
