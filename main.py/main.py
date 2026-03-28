@@ -585,12 +585,13 @@ while running:
     
     # Desenho
     if game_state == STATE_MENU:
-        start_button_rect = draw_start_menu(screen, "XADREZ PROJETO", "INICIAR JOGO FASE 1")
+        start_button_rect = draw_start_menu(screen, "XADREZ lendas", "START GAME FASE 1")
     
     elif game_state == STATE_PHASE2_START:
-        phase2_button_rect = draw_start_menu(screen, "FASE 1 CONCLUÍDA!", "INICIAR JOGO FASE 2")
+        phase2_button_rect = draw_start_menu(screen, "FASE 1 CONCLUÍDA!", "START GAME FASE 2")
     
     elif game_state == STATE_VICTORY_MENU:
+        phase3_button_rect = draw_start_menu(screen, "Vitoria!", "VOLTAR AO MENU PRINCIPAL")
         video_button_rect, skip_button_rect = draw_victory_menu()
         
         # Verificar cliques nos botões
@@ -609,7 +610,7 @@ while running:
         screen.fill(GAME_BACKGROUND_COLOR)
         
         draw_board()
-        draw_coordinates()
+        draw_coordinates
         draw_valid_moves(valid_moves)
         
         for piece in pieces:
