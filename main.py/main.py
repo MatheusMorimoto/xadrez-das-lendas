@@ -176,7 +176,25 @@ GREEN = (0, 150, 0)
 MENU_BACKGROUND_COLOR = (0, 0, 50)  
 GAME_BACKGROUND_COLOR = (180, 180, 180) 
 BUTTON_COLOR = (50, 150, 50) 
-BUTTON_HOVER_COLOR = (80, 180, 80) 
+BUTTON_HOVER_COLOR = (80, 180, 80)
+
+# Carregamento da imagem de fundo do menu
+MENU_BG_IMAGE = None
+possible_image_names = [
+    os.path.join(ASSETS_DIR, "tela_inicio.png"),
+    os.path.join(ASSETS_DIR, "tela inicio.png"),
+    "assets/tela_inicio.png",
+    "assets/tela inicio.png",
+    "tela_inicio.png"
+]
+for img_path in possible_image_names:
+    if os.path.exists(img_path):
+        try:
+            MENU_BG_IMAGE = pygame.image.load(img_path).convert()
+            MENU_BG_IMAGE = pygame.transform.scale(MENU_BG_IMAGE, (700, 700))
+            break
+        except Exception as e:
+            print(f"Erro ao carregar {img_path}: {e}")
 
 RESTART_BUTTON_RECT = pygame.Rect(WIDTH // 2 - 125, HEIGHT // 2 + 80, 250, 60)
 
@@ -485,12 +503,6 @@ def draw_victory_menu_phase2():
     HOVER_GREEN = (0, 230, 0)
     mouse_pos = pygame.mouse.get_pos()
     
-    # Botão Superior: VER REPLAY DA FASE
-    replay_rect = pygame.Rect(button_x, HEIGHT // 2, button_width, button_height)
-    color1 = HOVER_GREEN if replay_rect.collidepoint(mouse_pos) else VIBRANT_GREEN
-    pygame.draw.rect(screen, color1, replay_rect, border_radius=15)
-    txt1 = font.render("VER REPLAY DA FASE", True, WHITE)
-    screen.blit(txt1, txt1.get_rect(center=replay_rect.center))
     # Botão Superior: ASSISTIR VÍDEO
     video_rect = pygame.Rect(button_x, HEIGHT // 2, button_width, button_height)
     color1 = HOVER_GREEN if video_rect.collidepoint(mouse_pos) else VIBRANT_GREEN
@@ -505,7 +517,6 @@ def draw_victory_menu_phase2():
     txt2 = font.render("PULAR PARA FASE 3", True, WHITE)
     screen.blit(txt2, txt2.get_rect(center=skip_rect.center))
     
-    return replay_rect, skip_rect
     return video_rect, skip_rect
 
 # Função para desenhar menu de vitória da Fase 3
@@ -658,37 +669,66 @@ def draw_turn_indicator():
     ])
 
 # FUNÇÃO DE DESENHO DO MENU COM BOTÃO (MANTIDA/AJUSTADA)
-def draw_start_menu(screen, title_text, button_text):
+def draw_start_menu(screen, title_text, button_text, show_quit_button=False, bg_image=None):
     """Desenha uma tela de menu genérica com título e botão."""
-    screen.fill(MENU_BACKGROUND_COLOR) 
-    
-    # 1. Título
-    title_font = pygame.font.SysFont("Arial", 72)
-    title = title_font.render(title_text, True, WHITE)
-    title_rect = title.get_rect(center=(WIDTH // 2, HEIGHT // 3))
-    screen.blit(title, title_rect)
-    
-    # 2. Botão "Iniciar Jogo"
-    button_width = 350
-    button_height = 70
-    button_x = (WIDTH - button_width) // 2
-    button_y = HEIGHT // 3 * 2 - button_height // 2 
-
-    start_button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
-
     mouse_pos = pygame.mouse.get_pos()
-    current_button_color = BUTTON_COLOR
-    if start_button_rect.collidepoint(mouse_pos):
-        current_button_color = BUTTON_HOVER_COLOR
-
-    pygame.draw.rect(screen, current_button_color, start_button_rect, border_radius=10) 
     
-    button_font = pygame.font.SysFont("Arial", 36)
-    button = button_font.render(button_text, True, WHITE)
-    button_text_rect = button.get_rect(center=start_button_rect.center)
-    screen.blit(button, button_text_rect)
+    if bg_image:
+        # Preenche o fundo de preto e desenha a imagem levemente reduzida e centralizada
+        screen.fill(BLACK)
+        screen.blit(bg_image, (0, 0)) 
+        
+        # Dimensões precisas para cobrir as placas de madeira
+        button_width = 420
+        button_height = 41
+        
+        button_x = 340 - (button_width // 2)
+        # Coordenadas ajustadas: Iniciar sobe 6mm (-23px), Sair desce 12mm (+45px)
+        # Centros originais: 211 e 361 -> Novos centros: 188 e 406
+        start_y = 237 - (button_height // 2)
+        quit_y = 379 - (button_height // 2)
+    else:
+        screen.fill(MENU_BACKGROUND_COLOR) 
+        title_font = pygame.font.SysFont("Arial", 56, bold=True)
+        title_surf = title_font.render(title_text, True, WHITE)
+        title_rect = title_surf.get_rect(center=(WIDTH // 2, HEIGHT // 3))
+        screen.blit(title_surf, title_rect)
+        button_width = 350
+        button_height = 70
+        button_x = (WIDTH - button_width) // 2
+        start_y = HEIGHT // 2 + 60
+        quit_y = start_y + button_height + 20
 
-    return start_button_rect
+    start_button_rect = pygame.Rect(button_x, start_y, button_width, button_height)
+    quit_button_rect = pygame.Rect(button_x, quit_y, button_width, button_height) if show_quit_button else None
+
+    # Desenha efeito de destaque (hover) transparente se o mouse estiver sobre o botão
+    if start_button_rect.collidepoint(mouse_pos):
+        s = pygame.Surface((button_width, button_height), pygame.SRCALPHA)
+        s.fill((255, 255, 255, 60)) # Brilho branco suave
+        screen.blit(s, (button_x, start_y))
+        # Desenha a borda delimitada
+        pygame.draw.rect(screen, (255, 255, 255), start_button_rect, 1)
+
+    if quit_button_rect and quit_button_rect.collidepoint(mouse_pos) and show_quit_button:
+        s = pygame.Surface((button_width, button_height), pygame.SRCALPHA)
+        s.fill((255, 255, 255, 40)) # Brilho suave para o realce
+        screen.blit(s, (button_x, quit_y))
+        pygame.draw.rect(screen, (255, 100, 100), quit_button_rect, 1)
+
+    # Desenha os rótulos de texto. Se houver imagem, desenha por cima para garantir a nova ordem.
+    button_font = pygame.font.SysFont("Arial", 30, bold=True)
+    if bg_image:
+        # Texto omitido para ficar "transparente", usando apenas a escrita da imagem
+        pass
+    else:
+        btn_surf = button_font.render(button_text, True, WHITE)
+        screen.blit(btn_surf, btn_surf.get_rect(center=start_button_rect.center))
+        if show_quit_button:
+            quit_surf = button_font.render("SAIR DO JOGO", True, WHITE)
+            screen.blit(quit_surf, quit_surf.get_rect(center=quit_button_rect.center))
+
+    return start_button_rect, quit_button_rect
 
 # Funções de lógica do jogo
 def get_valid_moves(piece, pieces):
@@ -736,6 +776,7 @@ def is_checkmate(king, pieces):
 # Loop principal do jogo
 running = True
 start_button_rect = None
+quit_button_rect = None
 phase2_button_rect = None
 phase3_button_rect = None
 menu_button_rect_p3 = None
@@ -753,6 +794,8 @@ while running:
             if game_state == STATE_MENU:
                 if start_button_rect and start_button_rect.collidepoint(mouse_x, mouse_y):
                     start_phase(1)
+                elif quit_button_rect and quit_button_rect.collidepoint(mouse_x, mouse_y):
+                    running = False
             
             elif game_state == STATE_PHASE2_START:
                 if phase2_button_rect and phase2_button_rect.collidepoint(mouse_x, mouse_y):
@@ -761,8 +804,6 @@ while running:
                 if phase3_button_rect and phase3_button_rect.collidepoint(mouse_x, mouse_y):
                     start_phase(3)
             elif game_state == STATE_VICTORY_MENU_PHASE2:
-                if replay_button_rect_p2 and replay_button_rect_p2.collidepoint(mouse_x, mouse_y):
-                    start_phase(2)
                 if video_button_rect_p2 and video_button_rect_p2.collidepoint(mouse_x, mouse_y):
                     play_video("cucacaldeirao.MP4")
                     start_phase(3)
@@ -895,19 +936,18 @@ while running:
 
     # Desenho
     if game_state == STATE_MENU:
-        start_button_rect = draw_start_menu(screen, "XADREZ DAS LENDAS", "INICIAR FASE 1")
+        start_button_rect, quit_button_rect = draw_start_menu(screen, "", "INICIAR JOGADA", True, MENU_BG_IMAGE)
     
     elif game_state == STATE_PHASE2_START:
-        phase2_button_rect = draw_start_menu(screen, "FASE 1 CONCLUÍDA!", "START GAME FASE 2")
+        phase2_button_rect, _ = draw_start_menu(screen, "FASE 1 CONCLUÍDA!", "START GAME FASE 2", False, None)
     
     elif game_state == STATE_PHASE3_START:
-        phase3_button_rect = draw_start_menu(screen, "FASE 2 CONCLUÍDA!", "START GAME FASE 3")
+        phase3_button_rect, _ = draw_start_menu(screen, "FASE 2 CONCLUÍDA!", "START GAME FASE 3", False, None)
 
     elif game_state == STATE_VICTORY_MENU:
         video_button_rect, skip_button_rect = draw_victory_menu()
     
     elif game_state == STATE_VICTORY_MENU_PHASE2:
-        replay_button_rect_p2, skip_button_rect_p2 = draw_victory_menu_phase2()
         video_button_rect_p2, skip_button_rect_p2 = draw_victory_menu_phase2()
     
     elif game_state == STATE_VICTORY_MENU_PHASE3:
