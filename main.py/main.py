@@ -1,6 +1,27 @@
 import pygame
 import os
 import math 
+try:
+    import cv2
+    OPENCV_AVAILABLE = True
+except ImportError:
+    OPENCV_AVAILABLE = False
+
+# Variável global para controle do vídeo interno
+video_cap = None
+
+# --- CONFIGURAÇÕES DE ESCALA PROPORCIONAL AO NOTEBOOK ---
+pygame.init()
+info = pygame.display.Info()
+# Calcula a escala para que o jogo ocupe aproximadamente 85% da altura da tela do notebook
+# Base de cálculo: 8 casas de 80px + 2 margens de 40px = 720px no total.
+SCALE = (info.current_h * 0.85) / 720.0
+
+CELL_SIZE = int(80 * SCALE)
+MARGIN = int(40 * SCALE)
+BOARD_SIZE = CELL_SIZE * 8
+WIDTH = BOARD_SIZE + MARGIN * 2
+HEIGHT = BOARD_SIZE + MARGIN * 2
 
 # Define o diretório de ativos, assumindo que a pasta 'assets' está no mesmo nível do main.py
 ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
@@ -21,12 +42,12 @@ class Piece:
         try:
             # Tenta carregar usando o caminho completo a partir do diretório de trabalho atual
             loaded_image = pygame.image.load(full_image_path).convert_alpha()
-            self.image = pygame.transform.scale(loaded_image, (80, 80))
+            self.image = pygame.transform.scale(loaded_image, (CELL_SIZE, CELL_SIZE))
             print(f"Sucesso ao carregar: {full_image_path}") # Mensagem de sucesso
         except (pygame.error, FileNotFoundError) as e:
             # O erro persiste, exibe a peça magenta
             print(f"ERRO PERSISTENTE ao carregar a imagem {full_image_path}: {e}")
-            self.image = pygame.Surface((80, 80))
+            self.image = pygame.Surface((CELL_SIZE, CELL_SIZE))
             self.image.fill((255, 0, 255)) 
             
         self.row = row
@@ -43,15 +64,15 @@ class Piece:
         # Para a perspectiva das pretas (board_inverted_display=True),
         # a linha 0 (rank 8) é desenhada na parte inferior da tela,
         # e a linha 7 (rank 1) é desenhada na parte superior.
-        # A lógica atual de desenho (y = self.row * 80) já faz isso se considerarmos row 0 como o topo.
+        # A lógica atual de desenho (y = self.row * CELL_SIZE) já faz isso se considerarmos row 0 como o topo.
         # Para inverter a perspectiva, row 0 (rank 8) deve ser desenhada no topo para brancas,
         # e row 0 (rank 8) deve ser desenhada no fundo para pretas.
         # Portanto, para a perspectiva das pretas, invertemos a coordenada Y.
         if board_inverted_display:
             draw_row = 7 - self.row
         
-        x = self.col * 80 + offset_x # Colunas não são invertidas por padrão
-        y = draw_row * 80 + offset_y
+        x = self.col * CELL_SIZE + offset_x # Colunas não são invertidas por padrão
+        y = draw_row * CELL_SIZE + offset_y
         screen.blit(self.image, (x, y))
 
     # NOVO MÉTODO: Calcula os movimentos válidos da peça no tabuleiro atual
@@ -155,15 +176,8 @@ class Piece:
 
 
 # Inicializa o PyGame (mantido)
-pygame.init()
-font = pygame.font.SysFont("Arial", 24)
-
-# Tamanho do tabuleiro e margens (mantido)
-CELL_SIZE = 80
-BOARD_SIZE = CELL_SIZE * 8
-MARGIN = 40
-WIDTH = BOARD_SIZE + MARGIN * 2
-HEIGHT = BOARD_SIZE + MARGIN * 2
+font = pygame.font.SysFont("Arial", int(24 * SCALE))
+clock = pygame.time.Clock() # Criado para controlar a velocidade do vídeo e do jogo
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Tabuleiro de Xadrez")
@@ -191,12 +205,12 @@ for img_path in possible_image_names:
     if os.path.exists(img_path):
         try:
             MENU_BG_IMAGE = pygame.image.load(img_path).convert()
-            MENU_BG_IMAGE = pygame.transform.scale(MENU_BG_IMAGE, (700, 700))
+            MENU_BG_IMAGE = pygame.transform.scale(MENU_BG_IMAGE, (WIDTH, HEIGHT))
             break
         except Exception as e:
             print(f"Erro ao carregar {img_path}: {e}")
 
-RESTART_BUTTON_RECT = pygame.Rect(WIDTH // 2 - 125, HEIGHT // 2 + 80, 250, 60)
+RESTART_BUTTON_RECT = pygame.Rect(WIDTH // 2 - int(125 * SCALE), HEIGHT // 2 + int(80 * SCALE), int(250 * SCALE), int(60 * SCALE))
 
 # --- VARIÁVEIS DE ESTADO E INICIALIZAÇÃO DE PEÇAS ---
 
@@ -367,6 +381,7 @@ STATE_VICTORY_MENU_PHASE3 = "victory_menu_phase3" # Menu de vitória da Fase 3
 STATE_TRANSITION_PHASE1_VICTORY = "transition_phase1_victory" # Novo estado para transição de vitória
 STATE_TRANSITION_PHASE2_VICTORY = "transition_phase2_victory" # Novo estado para transição de vitória
 STATE_TRANSITION_PHASE3_VICTORY = "transition_phase3_victory" # Novo estado para transição de vitória
+STATE_CAMPAIGN_FINISHED = "campaign_finished" # Novo estado para fim da campanha
 game_state = STATE_MENU # O jogo começa no menu
 
 # Variáveis para controle de vídeo
@@ -376,7 +391,7 @@ video_duration = 10000  # 10 segundos para o vídeo
 # --- FUNÇÕES DE DESENHO ---
 
 def draw_board():
-    pygame.draw.rect(screen, BLACK, (MARGIN - 2, MARGIN - 2, BOARD_SIZE + 4, BOARD_SIZE + 4), 2)
+    pygame.draw.rect(screen, BLACK, (MARGIN - 2, MARGIN - 2, BOARD_SIZE + 4, BOARD_SIZE + 4), int(2 * SCALE))
     for row in range(8):
         for col in range(8):
             color = WHITE if (row + col) % 2 == 0 else LIGHT_GRAY
@@ -416,9 +431,9 @@ def draw_coordinates():
         y_coord = row * CELL_SIZE + MARGIN + CELL_SIZE // 2 - text.get_height() // 2
         
         # Coordenadas da esquerda (sempre visíveis)
-        screen.blit(text, (MARGIN - 30, y_coord))
+        screen.blit(text, (MARGIN - int(30 * SCALE), y_coord))
         # Coordenadas da direita (sempre visíveis)
-        screen.blit(text, (WIDTH - MARGIN + 10, y_coord))
+        screen.blit(text, (WIDTH - MARGIN + int(10 * SCALE), y_coord))
 
 def draw_valid_moves(moves):
     for row, col in moves:
@@ -429,7 +444,7 @@ def draw_valid_moves(moves):
         
         x = col * CELL_SIZE + MARGIN + CELL_SIZE // 2
         y = draw_row * CELL_SIZE + MARGIN + CELL_SIZE // 2
-        pygame.draw.circle(screen, GREEN, (x, y), 10)
+        pygame.draw.circle(screen, GREEN, (x, y), int(10 * SCALE))
 
 
 # Função para desenhar menu de vitória com botão de vídeo
@@ -437,19 +452,19 @@ def draw_victory_menu():
     screen.fill(MENU_BACKGROUND_COLOR)
     
     # Título de vitória
-    title_font = pygame.font.SysFont("Arial", 72, bold=True)
+    title_font = pygame.font.SysFont("Arial", int(72 * SCALE), bold=True)
     title_text = title_font.render("BEIJO DA MORTE!", True, (255, 215, 0))
-    title_rect = title_text.get_rect(center=(WIDTH // 2, HEIGHT // 3 - 50))
+    title_rect = title_text.get_rect(center=(WIDTH // 2, HEIGHT // 3 - int(50 * SCALE)))
     screen.blit(title_text, title_rect)
     
-    subtitle_font = pygame.font.SysFont("Arial", 48)
+    subtitle_font = pygame.font.SysFont("Arial", int(48 * SCALE))
     subtitle_text = subtitle_font.render("VITÓRIA!", True, (255, 100, 100))
     subtitle_rect = subtitle_text.get_rect(center=(WIDTH // 2, HEIGHT // 3))
     screen.blit(subtitle_text, subtitle_rect)
     
     # Botão para reproduzir vídeo
-    button_width = 300
-    button_height = 70
+    button_width = int(300 * SCALE)
+    button_height = int(70 * SCALE)
     button_x = (WIDTH - button_width) // 2
     button_y = HEIGHT // 2
     
@@ -460,13 +475,13 @@ def draw_victory_menu():
     
     pygame.draw.rect(screen, button_color, video_button_rect, border_radius=10)
     
-    button_font = pygame.font.SysFont("Arial", 36)
+    button_font = pygame.font.SysFont("Arial", int(36 * SCALE))
     button_text = button_font.render("ASSISTIR VÍDEO", True, WHITE)
     button_text_rect = button_text.get_rect(center=video_button_rect.center)
     screen.blit(button_text, button_text_rect)
     
     # Botão para pular para Fase 2
-    skip_button_y = HEIGHT // 2 + 100
+    skip_button_y = HEIGHT // 2 + int(100 * SCALE)
     skip_button_rect = pygame.Rect(button_x, skip_button_y, button_width, button_height)
     
     skip_button_color = BUTTON_HOVER_COLOR if skip_button_rect.collidepoint(mouse_pos) else BUTTON_COLOR
@@ -484,19 +499,19 @@ def draw_victory_menu_phase2():
     screen.fill((0, 0, 50)) # Fundo Azul marinho profundo
     
     # Texto Principal: Amarelo, Negrito, Caixa Alta
-    title_font = pygame.font.SysFont("Arial", 60, bold=True)
+    title_font = pygame.font.SysFont("Arial", int(60 * SCALE), bold=True)
     title_text = title_font.render("SEGUNDA FASE CONCLUÍDA!", True, (255, 215, 0)) # Amarelo
     title_rect = title_text.get_rect(center=(WIDTH // 2, HEIGHT // 3 - 50))
     screen.blit(title_text, title_rect)
     
     # Subtexto: Rosa/Coral, Caixa Alta
-    subtitle_font = pygame.font.SysFont("Arial", 48, bold=True)
+    subtitle_font = pygame.font.SysFont("Arial", int(48 * SCALE), bold=True)
     subtitle_text = subtitle_font.render("VITÓRIA!", True, (255, 127, 127)) # Rosa/Coral
     subtitle_rect = subtitle_text.get_rect(center=(WIDTH // 2, HEIGHT // 3 + 20))
     screen.blit(subtitle_text, subtitle_rect)
     
-    button_width = 350
-    button_height = 70
+    button_width = int(350 * SCALE)
+    button_height = int(70 * SCALE)
     button_x = (WIDTH - button_width) // 2
     
     VIBRANT_GREEN = (0, 200, 0)
@@ -511,7 +526,7 @@ def draw_victory_menu_phase2():
     screen.blit(txt1, txt1.get_rect(center=video_rect.center))
     
     # Botão Inferior: PULAR PARA FASE 3
-    skip_rect = pygame.Rect(button_x, HEIGHT // 2 + 100, button_width, button_height)
+    skip_rect = pygame.Rect(button_x, HEIGHT // 2 + int(100 * SCALE), button_width, button_height)
     color2 = HOVER_GREEN if skip_rect.collidepoint(mouse_pos) else VIBRANT_GREEN
     pygame.draw.rect(screen, color2, skip_rect, border_radius=15)
     txt2 = font.render("PULAR PARA FASE 3", True, WHITE)
@@ -520,21 +535,21 @@ def draw_victory_menu_phase2():
     return video_rect, skip_rect
 
 # Função para desenhar menu de vitória da Fase 3
-def draw_victory_menu_phase3():
+def draw_victory_menu_phase3(title="VITÓRIA TOTAL!"):
     screen.fill(MENU_BACKGROUND_COLOR)
     
-    title_font = pygame.font.SysFont("Arial", 72, bold=True)
-    title_text = title_font.render("VITÓRIA TOTAL!", True, (255, 215, 0))
+    title_font = pygame.font.SysFont("Arial", int(72 * SCALE), bold=True)
+    title_text = title_font.render(title, True, (255, 215, 0))
     title_rect = title_text.get_rect(center=(WIDTH // 2, HEIGHT // 3 - 50))
     screen.blit(title_text, title_rect)
     
-    subtitle_font = pygame.font.SysFont("Arial", 48)
+    subtitle_font = pygame.font.SysFont("Arial", int(48 * SCALE))
     subtitle_text = subtitle_font.render("LENDA DO XADREZ!", True, (255, 100, 100))
     subtitle_rect = subtitle_text.get_rect(center=(WIDTH // 2, HEIGHT // 3))
     screen.blit(subtitle_text, subtitle_rect)
     
-    button_width = 320
-    button_height = 70
+    button_width = int(320 * SCALE)
+    button_height = int(70 * SCALE)
     button_x = (WIDTH - button_width) // 2
     button_y = HEIGHT // 2
     
@@ -543,7 +558,7 @@ def draw_victory_menu_phase3():
     color = BUTTON_HOVER_COLOR if menu_button_rect.collidepoint(mouse_pos) else BUTTON_COLOR
     pygame.draw.rect(screen, color, menu_button_rect, border_radius=15)
     
-    btn_font = pygame.font.SysFont("Arial", 36)
+    btn_font = pygame.font.SysFont("Arial", int(36 * SCALE))
     btn_text = btn_font.render("VOLTAR AO MENU", True, WHITE)
     screen.blit(btn_text, btn_text.get_rect(center=menu_button_rect.center))
     
@@ -597,36 +612,36 @@ def draw_victory_transition_message(message, last_move_desc):
         # Divide a mensagem em título e subtítulo, se houver "! "
         lines = message.split('! ', 1) # Divide apenas na primeira ocorrência
         
-        title_font = pygame.font.SysFont("Arial", 48, bold=True)
+        title_font = pygame.font.SysFont("Arial", int(48 * SCALE), bold=True)
         title_text = title_font.render(lines[0] + ("!" if len(lines) > 1 else ""), True, (255, 215, 0)) 
-        title_rect = title_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 40))
+        title_rect = title_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - int(40 * SCALE)))
         screen.blit(title_text, title_rect)
         
         if len(lines) > 1:
-            message_font = pygame.font.SysFont("Arial", 36)
+            message_font = pygame.font.SysFont("Arial", int(36 * SCALE))
             message_text = message_font.render(lines[1], True, (200, 0, 0)) 
-            message_rect = message_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30))
+            message_rect = message_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + int(30 * SCALE)))
             screen.blit(message_text, message_rect)
         
         # Exibe a descrição do último movimento durante a transição
-        move_font = pygame.font.SysFont("Arial", 28)
+        move_font = pygame.font.SysFont("Arial", int(28 * SCALE))
         move_text = move_font.render(last_move_desc, True, WHITE)
-        move_rect = move_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 80))
+        move_rect = move_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + int(80 * SCALE)))
         screen.blit(move_text, move_rect)
 
 # Nova função para desenhar mensagens temporárias (erros, etc.)
 def draw_temporary_message(message):
     if message:
         # Fundo semi-transparente para a mensagem temporária
-        overlay_surface = pygame.Surface((WIDTH, 100), pygame.SRCALPHA) # Altura fixa para a mensagem
+        overlay_surface = pygame.Surface((WIDTH, int(100 * SCALE)), pygame.SRCALPHA) # Altura fixa para a mensagem
         overlay_surface.fill((0, 0, 0, 180)) # Preto semi-transparente
         
         # Posição centralizada no topo da tela
-        overlay_rect = overlay_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 150))
+        overlay_rect = overlay_surface.get_rect(center=(WIDTH // 2, HEIGHT // 2 - int(150 * SCALE)))
         screen.blit(overlay_surface, overlay_rect)
         
         # Fonte menor para mensagens de erro
-        message_font = pygame.font.SysFont("Arial", 24) 
+        message_font = pygame.font.SysFont("Arial", int(24 * SCALE)) 
         message_text = message_font.render(message, True, (255, 255, 0)) # Amarelo para destaque
         message_text_rect = message_text.get_rect(center=overlay_rect.center)
         screen.blit(message_text, message_text_rect)
@@ -654,8 +669,8 @@ def draw_turn_indicator():
     arrow_center_x = square_x + square_size // 2
     arrow_center_y = square_y + square_size // 2
     
-    arrow_height = 15 
-    arrow_width = 15  
+    arrow_height = int(15 * SCALE) 
+    arrow_width = int(15 * SCALE)  
     arrow_height = square_size // 2
     arrow_width = square_size // 2
     
@@ -679,22 +694,22 @@ def draw_start_menu(screen, title_text, button_text, show_quit_button=False, bg_
         screen.blit(bg_image, (0, 0)) 
         
         # Dimensões precisas para cobrir as placas de madeira
-        button_width = 420
-        button_height = 41
+        button_width = int(450 * SCALE) 
+        button_height = int(41 * SCALE)
         
-        button_x = 340 - (button_width // 2)
+        button_x = int(340 * SCALE) - (button_width // 2)
         # Coordenadas ajustadas: Iniciar sobe 6mm (-23px), Sair desce 12mm (+45px)
         # Centros originais: 211 e 361 -> Novos centros: 188 e 406
-        start_y = 237 - (button_height // 2)
-        quit_y = 379 - (button_height // 2)
+        start_y = int(237 * SCALE) - (button_height // 2)
+        quit_y = int(390 * SCALE) - (button_height // 2)
     else:
         screen.fill(MENU_BACKGROUND_COLOR) 
-        title_font = pygame.font.SysFont("Arial", 56, bold=True)
+        title_font = pygame.font.SysFont("Arial", int(56 * SCALE), bold=True)
         title_surf = title_font.render(title_text, True, WHITE)
         title_rect = title_surf.get_rect(center=(WIDTH // 2, HEIGHT // 3))
         screen.blit(title_surf, title_rect)
-        button_width = 350
-        button_height = 70
+        button_width = int(330 * SCALE)
+        button_height = int(30 * SCALE)
         button_x = (WIDTH - button_width) // 2
         start_y = HEIGHT // 2 + 60
         quit_y = start_y + button_height + 20
@@ -717,7 +732,7 @@ def draw_start_menu(screen, title_text, button_text, show_quit_button=False, bg_
         pygame.draw.rect(screen, (255, 100, 100), quit_button_rect, 1)
 
     # Desenha os rótulos de texto. Se houver imagem, desenha por cima para garantir a nova ordem.
-    button_font = pygame.font.SysFont("Arial", 30, bold=True)
+    button_font = pygame.font.SysFont("Arial", int(30 * SCALE), bold=True)
     if bg_image:
         # Texto omitido para ficar "transparente", usando apenas a escrita da imagem
         pass
@@ -784,6 +799,7 @@ video_button_rect, skip_button_rect = None, None
 video_button_rect_p2, skip_button_rect_p2 = None, None
 
 while running:
+    clock.tick(30) # Garante que o jogo e o vídeo rodem a 30 frames por segundo
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -811,7 +827,7 @@ while running:
                 elif skip_button_rect_p2 and skip_button_rect_p2.collidepoint(mouse_x, mouse_y):
                     start_phase(3)
             
-            elif game_state == STATE_VICTORY_MENU_PHASE3:
+            elif game_state in [STATE_VICTORY_MENU_PHASE3, STATE_CAMPAIGN_FINISHED]:
                 if menu_button_rect_p3 and menu_button_rect_p3.collidepoint(mouse_x, mouse_y):
                     game_state = STATE_MENU
                     start_phase(1) # Volta para o menu e reinicia a fase 1
@@ -952,6 +968,9 @@ while running:
     
     elif game_state == STATE_VICTORY_MENU_PHASE3:
         menu_button_rect_p3 = draw_victory_menu_phase3()
+
+    elif game_state == STATE_CAMPAIGN_FINISHED:
+        menu_button_rect_p3 = draw_victory_menu_phase3("CAMPANHA FINALIZADA!")
     
     # Novos estados de transição de vitória
     elif game_state in [STATE_TRANSITION_PHASE1_VICTORY, STATE_TRANSITION_PHASE2_VICTORY, STATE_TRANSITION_PHASE3_VICTORY]:
@@ -967,16 +986,112 @@ while running:
         draw_victory_transition_message(transition_message, last_move_description)
         if pygame.time.get_ticks() - transition_start_time > 6000: # Reduzido para 6 segundos
             if game_state == STATE_TRANSITION_PHASE1_VICTORY:
-                game_state = STATE_VICTORY_MENU
+                # Tenta iniciar o vídeo interno
+                video_name = "YARA.MP4"
+                found_video_path = ""
+                # Lista de caminhos possíveis (mesma lógica robusta do play_video)
+                possible_video_paths = [
+                    os.path.join(ASSETS_DIR, video_name),
+                    os.path.join(os.getcwd(), "assets", video_name),
+                    os.path.join(os.getcwd(), video_name),
+                    video_name
+                ]
+                for p in possible_video_paths:
+                    if os.path.exists(p):
+                        found_video_path = p
+                        break
+                
+                if OPENCV_AVAILABLE and found_video_path:
+                    video_cap = cv2.VideoCapture(found_video_path)
+                    if video_cap.isOpened():
+                        game_state = STATE_VIDEO
+                    else:
+                        play_video(video_name)
+                        start_phase(2)
+                else:
+                    # Fallback caso não tenha OpenCV ou vídeo não encontrado
+                    play_video() 
+                    start_phase(2) 
             elif game_state == STATE_TRANSITION_PHASE2_VICTORY:
-                game_state = STATE_VICTORY_MENU_PHASE2
+                # Tenta iniciar o vídeo interno da fase 2 automaticamente
+                video_name = "cucacaldeirao.MP4"
+                found_video_path = ""
+                possible_video_paths = [
+                    os.path.join(ASSETS_DIR, video_name),
+                    os.path.join(os.getcwd(), "assets", video_name),
+                    os.path.join(os.getcwd(), video_name),
+                    video_name
+                ]
+                for p in possible_video_paths:
+                    if os.path.exists(p):
+                        found_video_path = p
+                        break
+                
+                if OPENCV_AVAILABLE and found_video_path:
+                    video_cap = cv2.VideoCapture(found_video_path)
+                    if video_cap.isOpened():
+                        game_state = STATE_VIDEO
+                    else:
+                        play_video(video_name)
+                        start_phase(3)
+                else:
+                    play_video(video_name) 
+                    start_phase(3)
             elif game_state == STATE_TRANSITION_PHASE3_VICTORY:
-                game_state = STATE_VICTORY_MENU_PHASE3
+                # Tenta iniciar o vídeo final automaticamente
+                video_name = "cuca.mp4"
+                found_video_path = ""
+                possible_video_paths = [
+                    os.path.join(ASSETS_DIR, video_name),
+                    os.path.join(os.getcwd(), "assets", video_name),
+                    os.path.join(os.getcwd(), video_name),
+                    video_name
+                ]
+                for p in possible_video_paths:
+                    if os.path.exists(p):
+                        found_video_path = p
+                        break
+                
+                if OPENCV_AVAILABLE and found_video_path:
+                    video_cap = cv2.VideoCapture(found_video_path)
+                    if video_cap.isOpened():
+                        game_state = STATE_VIDEO
+                    else:
+                        play_video(video_name)
+                        game_state = STATE_CAMPAIGN_FINISHED
+                else:
+                    play_video(video_name) 
+                    game_state = STATE_CAMPAIGN_FINISHED
             
             # Reseta as variáveis de transição
             transition_start_time = 0
             transition_message = ""
             last_move_description = "" # Limpa a descrição do último movimento
+
+    elif game_state == STATE_VIDEO:
+        if video_cap and video_cap.isOpened():
+            ret, frame = video_cap.read()
+            if ret:
+                # Redimensiona o frame para o tamanho da tela do jogo
+                frame = cv2.resize(frame, (WIDTH, HEIGHT))
+                # Converte de BGR (OpenCV) para RGB (Pygame)
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                # Cria a superfície do Pygame a partir do frame
+                video_surf = pygame.image.frombuffer(frame.tobytes(), (WIDTH, HEIGHT), 'RGB')
+                screen.blit(video_surf, (0, 0))
+            else:
+                # Vídeo terminou
+                video_cap.release()
+                video_cap = None
+                if current_phase == 3:
+                    game_state = STATE_CAMPAIGN_FINISHED
+                else:
+                    start_phase(current_phase + 1)
+        else:
+            if current_phase == 3:
+                game_state = STATE_CAMPAIGN_FINISHED
+            else:
+                start_phase(current_phase + 1)
 
     elif game_state in [STATE_GAME, STATE_GAME_PHASE2, STATE_GAME_PHASE3]:
         screen.fill(GAME_BACKGROUND_COLOR)
@@ -999,14 +1114,14 @@ while running:
 
         # Desenha a descrição do último movimento bem-sucedido (não vencedor)
         if last_successful_move_text and pygame.time.get_ticks() - last_successful_move_time < 4000:
-            move_desc_font = pygame.font.SysFont("Arial", 18, bold=True)
+            move_desc_font = pygame.font.SysFont("Arial", int(18 * SCALE), bold=True)
             move_desc_text = move_desc_font.render(last_successful_move_text, True, (200, 0, 0)) # Vermelho para erro
             
             if error_piece_pos:
                 r, c = error_piece_pos
                 draw_row = 7 - r if board_inverted_display else r
                 x = c * CELL_SIZE + MARGIN + CELL_SIZE // 2
-                y = draw_row * CELL_SIZE + MARGIN - 15 # Posiciona acima da peça
+                y = draw_row * CELL_SIZE + MARGIN - int(15 * SCALE) # Posiciona acima da peça
                 move_desc_rect = move_desc_text.get_rect(center=(x, y))
                 
                 # Desenha um pequeno fundo para garantir que o texto seja legível sobre o tabuleiro
