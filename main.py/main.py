@@ -13,9 +13,13 @@ video_cap = None
 # --- CONFIGURAÇÕES DE ESCALA PROPORCIONAL AO NOTEBOOK ---
 pygame.init()
 info = pygame.display.Info()
+
+# Garante que a altura da tela não seja zero para evitar janelas invisíveis
+screen_h = info.current_h if info.current_h > 0 else 720
 # Calcula a escala para que o jogo ocupe aproximadamente 85% da altura da tela do notebook
-# Base de cálculo: 8 casas de 80px + 2 margens de 40px = 720px no total.
-SCALE = (info.current_h * 0.85) / 720.0
+SCALE = (screen_h * 0.85) / 720.0
+# Define um limite mínimo para a escala
+SCALE = max(0.5, SCALE)
 
 CELL_SIZE = int(80 * SCALE)
 MARGIN = int(40 * SCALE)
@@ -23,8 +27,9 @@ BOARD_SIZE = CELL_SIZE * 8
 WIDTH = BOARD_SIZE + MARGIN * 2
 HEIGHT = BOARD_SIZE + MARGIN * 2
 
-# Define o diretório de ativos, assumindo que a pasta 'assets' está no mesmo nível do main.py
-ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+# Define o diretório base como a raiz do projeto (um nível acima da pasta main.py)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 # Se a pasta 'assets' estiver diretamente em D:\projeto sabado, você pode tentar:
 # ASSETS_DIR = os.path.join(os.getcwd(), "assets")
 # Vou manter a primeira opção, pois é mais robusta para scripts Python.
@@ -36,12 +41,14 @@ def get_piece_at(row, col, pieces):
 # Classe da peça (COM MÉTODO get_moves INTEGRADO)
 class Piece:
     def __init__(self, image_path_relative, row, col, tipo, cor):
-        # CORREÇÃO CRÍTICA AQUI: Construindo o caminho absoluto para a imagem
-        full_image_path = os.path.join(os.getcwd(), image_path_relative)
+        # Extrai apenas o nome do arquivo e busca dentro de ASSETS_DIR
+        file_name = os.path.basename(image_path_relative)
+        full_image_path = os.path.join(ASSETS_DIR, file_name)
         
         try:
             # Tenta carregar usando o caminho completo a partir do diretório de trabalho atual
             loaded_image = pygame.image.load(full_image_path).convert_alpha()
+            loaded_image.set_colorkey((0, 0, 0)) # Define a cor preta das bordas como transparente
             self.image = pygame.transform.scale(loaded_image, (CELL_SIZE, CELL_SIZE))
             print(f"Sucesso ao carregar: {full_image_path}") # Mensagem de sucesso
         except (pygame.error, FileNotFoundError) as e:
@@ -187,8 +194,12 @@ WHITE = (255, 255, 255)
 LIGHT_GRAY = (200, 200, 200)
 BLACK = (0, 0, 0)
 GREEN = (0, 150, 0)
-MENU_BACKGROUND_COLOR = (0, 0, 50)  
-GAME_BACKGROUND_COLOR = (180, 180, 180) 
+GOLD = (255, 215, 0)
+BOARD_LIGHT_GREEN = (144, 238, 144)
+BOARD_DARK_GREEN = (0, 100, 0)
+MENU_BACKGROUND_COLOR = (0, 0, 50)
+WOOD_BROWN = (101, 67, 33)
+GAME_BACKGROUND_COLOR = WOOD_BROWN
 BUTTON_COLOR = (50, 150, 50) 
 BUTTON_HOVER_COLOR = (80, 180, 80)
 
@@ -394,7 +405,7 @@ def draw_board():
     pygame.draw.rect(screen, BLACK, (MARGIN - 2, MARGIN - 2, BOARD_SIZE + 4, BOARD_SIZE + 4), int(2 * SCALE))
     for row in range(8):
         for col in range(8):
-            color = WHITE if (row + col) % 2 == 0 else LIGHT_GRAY
+            color = BOARD_LIGHT_GREEN if (row + col) % 2 == 0 else BOARD_DARK_GREEN
             
             draw_row = row
             # Inverte a linha para a perspectiva das pretas
@@ -651,17 +662,13 @@ def draw_turn_indicator():
     # Define a cor do quadrado e da seta com base no turno
     indicator_square_color = WHITE if current_turn == "branca" else BLACK
     
-    square_size = 45 
-    # Ocupa o espaço total da margem até o tabuleiro (40x40 se MARGIN for 40)
+    # Ocupa o espaço total da margem até o tabuleiro
     square_size = MARGIN 
     
-    # Posiciona o quadrado rente ao canto inferior direito do tabuleiro (dentro da área visível)
-    square_x = WIDTH - square_size - 5
-    square_y = HEIGHT - square_size - 5
-    # Posiciona exatamente no canto inferior direito, preenchendo a margem
+    # Posiciona no canto inferior direito
     square_x = WIDTH - square_size
     square_y = HEIGHT - square_size
-    
+
     # Desenha o quadrado
     pygame.draw.rect(screen, indicator_square_color, (square_x, square_y, square_size, square_size))
     
@@ -980,7 +987,7 @@ while running:
         draw_board()
         draw_coordinates()
         for piece in pieces:
-            piece.draw(screen, MARGIN, MARGIN, board_inverted_display)
+                piece.draw(screen, MARGIN, MARGIN, board_inverted_display)
 
         # Exibe a mensagem de transição e o último movimento
         draw_victory_transition_message(transition_message, last_move_description)
