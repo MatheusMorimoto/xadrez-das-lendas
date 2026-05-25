@@ -1,0 +1,6 @@
+README.md
+setup.py
+Xadrez_das_Lendas.egg-info/PKG-INFO
+Xadrez_das_Lendas.egg-info/SOURCES.txt
+Xadrez_das_Lendas.egg-info/dependency_links.txt
+Xadrez_das_Lendas.egg-info/top_level.txt
