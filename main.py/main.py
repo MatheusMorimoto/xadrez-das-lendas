@@ -1,6 +1,7 @@
 import pygame
 import os
 import math 
+from piece import Piece
 try:
     import cv2
     OPENCV_AVAILABLE = True
@@ -37,150 +38,6 @@ ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 # Função auxiliar para verificar a ocupação (útil dentro da classe Piece)
 def get_piece_at(row, col, pieces):
     return next((p for p in pieces if p.row == row and p.col == col), None)
-
-# Classe da peça (COM MÉTODO get_moves INTEGRADO)
-class Piece:
-    def __init__(self, image_path_relative, row, col, tipo, cor):
-        # Extrai apenas o nome do arquivo e busca dentro de ASSETS_DIR
-        file_name = os.path.basename(image_path_relative)
-        full_image_path = os.path.join(ASSETS_DIR, file_name)
-        
-        try:
-            # Tenta carregar usando o caminho completo a partir do diretório de trabalho atual
-            loaded_image = pygame.image.load(full_image_path).convert_alpha()
-            loaded_image.set_colorkey((0, 0, 0)) # Define a cor preta das bordas como transparente
-            self.image = pygame.transform.scale(loaded_image, (CELL_SIZE, CELL_SIZE))
-            print(f"Sucesso ao carregar: {full_image_path}") # Mensagem de sucesso
-        except (pygame.error, FileNotFoundError) as e:
-            # O erro persiste, exibe a peça magenta
-            print(f"ERRO PERSISTENTE ao carregar a imagem {full_image_path}: {e}")
-            self.image = pygame.Surface((CELL_SIZE, CELL_SIZE))
-            self.image.fill((255, 0, 255)) 
-            
-        self.row = row
-        self.col = col
-        self.tipo = tipo
-        self.image_path = image_path_relative
-        self.cor = cor  # "branca" ou "preta"
-
-    def draw(self, screen, offset_x, offset_y, board_inverted_display=False):
-        if not hasattr(self, 'image') or self.image is None:
-            return
-        
-        draw_row = self.row
-        # Para a perspectiva das pretas (board_inverted_display=True),
-        # a linha 0 (rank 8) é desenhada na parte inferior da tela,
-        # e a linha 7 (rank 1) é desenhada na parte superior.
-        # A lógica atual de desenho (y = self.row * CELL_SIZE) já faz isso se considerarmos row 0 como o topo.
-        # Para inverter a perspectiva, row 0 (rank 8) deve ser desenhada no topo para brancas,
-        # e row 0 (rank 8) deve ser desenhada no fundo para pretas.
-        # Portanto, para a perspectiva das pretas, invertemos a coordenada Y.
-        if board_inverted_display:
-            draw_row = 7 - self.row
-        
-        x = self.col * CELL_SIZE + offset_x # Colunas não são invertidas por padrão
-        y = draw_row * CELL_SIZE + offset_y
-        screen.blit(self.image, (x, y))
-
-    # NOVO MÉTODO: Calcula os movimentos válidos da peça no tabuleiro atual
-    def get_moves(self, board_pieces):
-        moves = []
-        
-        # Função interna para calcular movimentos lineares/diagonais (Torre, Bispo, Rainha)
-        def check_linear_moves(directions):
-            possible_moves = []
-            for dx, dy in directions:
-                for i in range(1, 8):
-                    r = self.row + dy * i
-                    c = self.col + dx * i
-                    if 0 <= r < 8 and 0 <= c < 8:
-                        target_piece = get_piece_at(r, c, board_pieces)
-                        if target_piece:
-                            if target_piece.cor != self.cor:
-                                possible_moves.append((r, c)) # Captura
-                            break # Para se encontrar qualquer peça
-                        else:
-                            possible_moves.append((r, c)) # Movimento para casa vazia
-                    else:
-                        break
-            return possible_moves
-
-        # Lógica de movimento da Rainha (diagonal e reta)
-        if self.tipo == "rainha":
-            directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)]
-            moves.extend(check_linear_moves(directions))
-
-        # Lógica de movimento do Rei (uma casa em qualquer direção)
-        elif self.tipo == "rei":
-            directions = [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)]
-            for dx, dy in directions:
-                r = self.row + dy
-                c = self.col + dx
-                if 0 <= r < 8 and 0 <= c < 8:
-                    target_piece = get_piece_at(r, c, board_pieces)
-                    if not target_piece or target_piece.cor != self.cor:
-                        moves.append((r, c))
-
-        # Lógica de movimento do Cavalo (formato L)
-        elif self.tipo == "cavalo":
-            jumps = [(2, 1), (1, 2), (-1, 2), (-2, 1), (-2, -1), (-1, -2), (1, -2), (2, -1)]
-            for dx, dy in jumps:
-                r = self.row + dy
-                c = self.col + dx
-                if 0 <= r < 8 and 0 <= c < 8:
-                    target_piece = get_piece_at(r, c, board_pieces)
-                    if not target_piece or target_piece.cor != self.cor:
-                        moves.append((r, c))
-                        
-        # Lógica do Peão
-        elif self.tipo == "peao":
-            if self.cor == "branca":
-                direction = -1
-                start_row = 6 
-            else: 
-                direction = 1
-                start_row = 1 
-                
-            # 1. Movimento para frente (uma casa)
-            r = self.row + direction
-            c = self.col
-            if 0 <= r < 8 and not get_piece_at(r, c, board_pieces):
-                moves.append((r, c))
-                
-                # 2. Movimento para frente (duas casas)
-                if self.row == start_row:
-                    r2 = self.row + 2 * direction
-                    if not get_piece_at(r2, c, board_pieces):
-                        moves.append((r2, c))
-            
-            # 3. Captura diagonal
-            for dc in [-1, 1]:
-                r_cap = self.row + direction
-                c_cap = self.col + dc
-                if 0 <= r_cap < 8 and 0 <= c_cap < 8:
-                    target_piece = get_piece_at(r_cap, c_cap, board_pieces)
-                    if target_piece and target_piece.cor != self.cor:
-                        moves.append((r_cap, c_cap))
-                        
-        # Lógica da Torre (reta)
-        elif self.tipo == "torre":
-            directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-            moves.extend(check_linear_moves(directions))
-        
-        # Lógica do Bispo (diagonal)
-        elif self.tipo == "bispo":
-            directions = [(1, 1), (-1, -1), (1, -1), (-1, 1)]
-            moves.extend(check_linear_moves(directions))
-
-        return moves
-
-    def copy(self):
-        """Cria uma cópia da peça para salvar o estado do tabuleiro."""
-        new_piece = Piece(self.image_path, self.row, self.col, self.tipo, self.cor)
-        # Copiamos a imagem já carregada para não precisar ler o arquivo do disco novamente
-        new_piece.image = self.image
-        return new_piece
-
 
 # Inicializa o PyGame (mantido)
 font = pygame.font.SysFont("Arial", int(24 * SCALE))
@@ -237,40 +94,41 @@ current_phase = 1 # Tracks the current phase for resets
 reset_timer_active = False # Flag for 3-second reset delay
 reset_timer_start = 0 # Start time for the reset delay
 error_piece_pos = None # Stores (row, col) of the piece that moved incorrectly
+boitata_played = False # Flag para controlar a exibição sequencial do vídeo do Boitatá
 
 # Lista inicial de peças (Fase 1 - Exemplo de Xeque-mate: Beijo da Morte)
 def create_initial_pieces_phase1():
     return [
-        Piece("assets/rainha_branca.png", 1, 4, "rainha", "branca"), # Posição e7 (row 1, col 4)
-        Piece("assets/rei_branco.png", 2, 3, "rei", "branca"),       # Posição d6
-        Piece("assets/cavalo_branco.png", 3, 6, "cavalo", "branca"), # Posição g5
-        Piece("assets/rei_preto.png", 0, 7, "rei", "preta"),         # Posição h8
+        Piece("assets/rainha_branca.png", 1, 4, "rainha", "branca", CELL_SIZE, ASSETS_DIR), 
+        Piece("assets/rei_branco.png", 2, 3, "rei", "branca", CELL_SIZE, ASSETS_DIR),       
+        Piece("assets/cavalo_branco_2.png", 3, 6, "cavalo", "branca", CELL_SIZE, ASSETS_DIR), 
+        Piece("assets/rei_preto.png", 0, 7, "rei", "preta", CELL_SIZE, ASSETS_DIR),         
     ]
 
 # Layout para a Fase 3
 def create_initial_pieces_phase3():
     return [
         # --- PEÇAS PRETAS ---
-        Piece("assets/rei_preto.png", 1, 3, "rei", "preta"),          
-        Piece("assets/rainha_preta.png", 4, 5, "rainha", "preta"),    
-        Piece("assets/cavalo_preto .png", 4, 4, "cavalo", "preta"),   
-        Piece("assets/peão_preto 1.png", 1, 0, "peao", "preta"),      
-        Piece("assets/peão_preto 2.png", 1, 2, "peao", "preta"),      
-        Piece("assets/peão_preto 3.png", 1, 5, "peao", "preta"),      
-        Piece("assets/peão_preto 4.png", 1, 6, "peao", "preta"),      
-        Piece("assets/peão_preto 5.png", 1, 7, "peao", "preta"),      
+        Piece("assets/rei_preto.png", 1, 3, "rei", "preta", CELL_SIZE, ASSETS_DIR),          
+        Piece("assets/rainha_preta.png", 4, 5, "rainha", "preta", CELL_SIZE, ASSETS_DIR),    
+        Piece("assets/cavalo_preto .png", 4, 4, "cavalo", "preta", CELL_SIZE, ASSETS_DIR),   
+        Piece("assets/peão_preto 1.png", 1, 0, "peao", "preta", CELL_SIZE, ASSETS_DIR),      
+        Piece("assets/peão_preto 2.png", 1, 2, "peao", "preta", CELL_SIZE, ASSETS_DIR),      
+        Piece("assets/peão_preto 3.png", 1, 5, "peao", "preta", CELL_SIZE, ASSETS_DIR),      
+        Piece("assets/peão_preto 4.png", 1, 6, "peao", "preta", CELL_SIZE, ASSETS_DIR),      
+        Piece("assets/peão_preto 5.png", 1, 7, "peao", "preta", CELL_SIZE, ASSETS_DIR),      
 
         # --- PEÇAS BRANCAS ---
-        Piece("assets/rei_branco.png", 4, 7, "rei", "branca"),        
-        Piece("assets/rainha_branca.png", 0, 7, "rainha", "branca"),  
-        Piece("assets/torre_branca.png", 7, 7, "torre", "branca"),    
-        Piece("assets/torre_branca_2.png", 4, 0, "torre", "branca"),  
-        Piece("assets/bispo_branco 1 .png", 7, 5, "bispo", "branca"), 
-        Piece("assets/cavalo_branco.png", 5, 5, "cavalo", "branca"),  
-        Piece("assets/peao_branco 1.png", 6, 4, "peao", "branca"),    
-        Piece("assets/peao_branco 2.png", 6, 7, "peao", "branca"),    
-        Piece("assets/peao_branco 4.png", 4, 6, "peao", "branca"),    
-        Piece("assets/peao_branco 5.png", 5, 7, "peao", "branca"),    
+        Piece("assets/rei_branco.png", 4, 7, "rei", "branca", CELL_SIZE, ASSETS_DIR),        
+        Piece("assets/rainha_branca.png", 0, 7, "rainha", "branca", CELL_SIZE, ASSETS_DIR),  
+        Piece("assets/torre_branca_2.png", 7, 7, "torre", "branca", CELL_SIZE, ASSETS_DIR),    
+        Piece("assets/torre_branca_2.png", 4, 0, "torre", "branca", CELL_SIZE, ASSETS_DIR),  
+        Piece("assets/bispo_branco 1 .png", 7, 5, "bispo", "branca", CELL_SIZE, ASSETS_DIR), 
+        Piece("assets/cavalo_branco_2.png", 5, 5, "cavalo", "branca", CELL_SIZE, ASSETS_DIR),  
+        Piece("assets/peao_branco 1.png", 6, 4, "peao", "branca", CELL_SIZE, ASSETS_DIR),    
+        Piece("assets/peao_branco 2.png", 6, 7, "peao", "branca", CELL_SIZE, ASSETS_DIR),    
+        Piece("assets/peao_branco 4.png", 4, 6, "peao", "branca", CELL_SIZE, ASSETS_DIR),    
+        Piece("assets/peao_branco 5.png", 5, 7, "peao", "branca", CELL_SIZE, ASSETS_DIR),    
     ]
 
 # Lista de peças para a Fase 2 (COM NOMES DE ARQUIVOS CORRIGIDOS FINALMENTE)
@@ -281,52 +139,52 @@ def create_initial_pieces_phase2():
         # --- PEÇAS BRANCAS (White) ---
         
         # Rei: h1 (7, 7)
-        Piece("assets/rei_branco.png", 7, 7, "rei", "branca"),      
+        Piece("assets/rei_branco.png", 7, 7, "rei", "branca", CELL_SIZE, ASSETS_DIR),      
         
         # Rainha: c2 (6, 2)
-        Piece("assets/rainha_branca.png", 6, 2, "rainha", "branca"),
+        Piece("assets/rainha_branca.png", 6, 2, "rainha", "branca", CELL_SIZE, ASSETS_DIR),
         
         # Torre: g1 (7, 6)
-        Piece("assets/torre_branca.png", 7, 6, "torre", "branca"),
+        Piece("assets/torre_branca_2.png", 7, 6, "torre", "branca", CELL_SIZE, ASSETS_DIR),
         
         # Bispo: d3 (5, 3) 
-        Piece("assets/bispo_branco 1 .png", 5, 3, "bispo", "branca"),
+        Piece("assets/bispo_branco 1 .png", 5, 3, "bispo", "branca", CELL_SIZE, ASSETS_DIR),
         
         # Cavalos: c3 (5, 2), d2 (6, 3) 
-        Piece("assets/cavalo_branco.png", 5, 2, "cavalo", "branca"),
-        Piece("assets/cavalo_branco_2.png", 6, 3, "cavalo", "branca"),
+        Piece("assets/cavalo_branco_2.png", 5, 2, "cavalo", "branca", CELL_SIZE, ASSETS_DIR),
+        Piece("assets/cavalo_branco_2.png", 6, 3, "cavalo", "branca", CELL_SIZE, ASSETS_DIR),
         
         # Peões Brancos
-        Piece("assets/peao_branco 1.png", 6, 0, "peao", "branca"),
-        Piece("assets/peao_branco 2.png", 6, 1, "peao", "branca"),
-        Piece("assets/peao_branco 4.png", 4, 3, "peao", "branca"),
-        Piece("assets/peao_branco 5.png", 5, 5, "peao", "branca"),
-        Piece("assets/peao_branco 6.png", 6, 6, "peao", "branca"),  # G2
-        Piece("assets/peao_branco 7.png", 6, 7, "peao", "branca"),  # H2
+        Piece("assets/peao_branco 1.png", 6, 0, "peao", "branca", CELL_SIZE, ASSETS_DIR),
+        Piece("assets/peao_branco 2.png", 6, 1, "peao", "branca", CELL_SIZE, ASSETS_DIR),
+        Piece("assets/peao_branco 4.png", 4, 3, "peao", "branca", CELL_SIZE, ASSETS_DIR),
+        Piece("assets/peao_branco 5.png", 5, 5, "peao", "branca", CELL_SIZE, ASSETS_DIR),
+        Piece("assets/peao_branco 6.png", 6, 6, "peao", "branca", CELL_SIZE, ASSETS_DIR),  # G2
+        Piece("assets/peao_branco 7.png", 6, 7, "peao", "branca", CELL_SIZE, ASSETS_DIR),  # H2
 
         # --- PEÇAS PRETAS (Black) ---
         
         # Rei: g8 (0, 6)
-        Piece("assets/rei_preto.png", 0, 6, "rei", "preta"),        
+        Piece("assets/rei_preto.png", 0, 6, "rei", "preta", CELL_SIZE, ASSETS_DIR),        
         
         # Torres: a8 (0, 0), f8 (0, 5) 
-        Piece("assets/torre_preta.png", 0, 0, "torre", "preta"),
-        Piece("assets/torre_preta_2.png", 0, 5, "torre", "preta"),
+        Piece("assets/torre_preta.png", 0, 0, "torre", "preta", CELL_SIZE, ASSETS_DIR),
+        Piece("assets/torre_preta_2.png", 0, 5, "torre", "preta", CELL_SIZE, ASSETS_DIR),
         
         # Bispo: f4 (4, 5)
-        Piece("assets/bispo_preta.png", 4, 5, "bispo", "preta"),
+        Piece("assets/bispo_preta.png", 4, 5, "bispo", "preta", CELL_SIZE, ASSETS_DIR),
         
         # Cavalos
-        Piece("assets/cavalo_preto .png", 1, 3, "cavalo", "preta"),
-        Piece("assets/cavalo_preto_2.png", 5, 7, "cavalo", "preta"),
+        Piece("assets/cavalo_preto .png", 1, 3, "cavalo", "preta", CELL_SIZE, ASSETS_DIR),
+        Piece("assets/cavalo_preto_2.png", 5, 7, "cavalo", "preta", CELL_SIZE, ASSETS_DIR),
         
         # Peões Pretos
-        Piece("assets/peão_preto 1.png", 1, 0, "peao", "preta"),
-        Piece("assets/peão_preto 2.png", 1, 1, "peao", "preta"),
-        Piece("assets/peão_preto 3.png", 2, 2, "peao", "preta"),
-        Piece("assets/peão_preto 4.png", 3, 5, "peao", "preta"),
-        Piece("assets/peão_preto 5.png", 1, 6, "peao", "preta"),
-        Piece("assets/peão_preto 6.png", 1, 7, "peao", "preta")
+        Piece("assets/peão_preto 1.png", 1, 0, "peao", "preta", CELL_SIZE, ASSETS_DIR),
+        Piece("assets/peão_preto 2.png", 1, 1, "peao", "preta", CELL_SIZE, ASSETS_DIR),
+        Piece("assets/peão_preto 3.png", 2, 2, "peao", "preta", CELL_SIZE, ASSETS_DIR),
+        Piece("assets/peão_preto 4.png", 3, 5, "peao", "preta", CELL_SIZE, ASSETS_DIR),
+        Piece("assets/peão_preto 5.png", 1, 6, "peao", "preta", CELL_SIZE, ASSETS_DIR),
+        Piece("assets/peão_preto 6.png", 1, 7, "peao", "preta", CELL_SIZE, ASSETS_DIR)
     ]
 
 # Função para iniciar uma fase específica
@@ -337,7 +195,7 @@ def start_phase(phase, reset_pieces=True):
            temporary_message, temporary_message_start_time, \
            last_successful_move_text, last_successful_move_time, \
            current_phase, reset_timer_active, reset_timer_start, \
-           error_piece_pos
+           error_piece_pos, boitata_played
     
     selected_piece = None
     valid_moves = []
@@ -352,6 +210,7 @@ def start_phase(phase, reset_pieces=True):
     last_successful_move_text = "" # Clear successful move message
     last_successful_move_time = 0
     error_piece_pos = None
+    boitata_played = False
     
     current_phase = phase
 
@@ -1065,9 +924,11 @@ while running:
                         game_state = STATE_VIDEO
                     else:
                         play_video(video_name)
+                        play_video("boitata.mp4")
                         game_state = STATE_CAMPAIGN_FINISHED
                 else:
                     play_video(video_name) 
+                    play_video("boitata.mp4")
                     game_state = STATE_CAMPAIGN_FINISHED
             
             # Reseta as variáveis de transição
@@ -1090,7 +951,32 @@ while running:
                 # Vídeo terminou
                 video_cap.release()
                 video_cap = None
-                if current_phase == 3:
+                if current_phase == 3 and not boitata_played:
+                    # Após cuca.mp4, tenta carregar boitata.mp4
+                    video_name_bt = "boitata.mp4"
+                    found_bt_path = ""
+                    possible_bt_paths = [
+                        os.path.join(ASSETS_DIR, video_name_bt),
+                        os.path.join(os.getcwd(), "assets", video_name_bt),
+                        os.path.join(os.getcwd(), video_name_bt),
+                        video_name_bt
+                    ]
+                    for pbt in possible_bt_paths:
+                        if os.path.exists(pbt):
+                            found_bt_path = pbt
+                            break
+                    
+                    if OPENCV_AVAILABLE and found_bt_path:
+                        video_cap = cv2.VideoCapture(found_bt_path)
+                        if video_cap.isOpened():
+                            boitata_played = True
+                        else:
+                            play_video(video_name_bt)
+                            game_state = STATE_CAMPAIGN_FINISHED
+                    else:
+                        play_video(video_name_bt)
+                        game_state = STATE_CAMPAIGN_FINISHED
+                elif current_phase == 3:
                     game_state = STATE_CAMPAIGN_FINISHED
                 else:
                     start_phase(current_phase + 1)
