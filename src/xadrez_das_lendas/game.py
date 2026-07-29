@@ -7,11 +7,11 @@ import logging
 from .renderer import Renderer
 from .rules import legal_moves
 from .state import GameState, ScreenState
+from .ui_actions import UIAction
 from .video import VideoPlayer
 
 LOGGER = logging.getLogger(__name__)
 FPS = 30
-TRANSITION_MS = 2500
 
 
 class Game:
@@ -32,7 +32,6 @@ class Game:
         self.video = VideoPlayer()
         self.clock = pygame.time.Clock()
         self.running = True
-        self.transition_at: int | None = None
 
     def run(self) -> None:
         try:
@@ -64,19 +63,19 @@ class Game:
                 self._click(event.pos, now)
 
     def _click(self, position: tuple[int, int], now: int) -> None:
-        buttons = self.renderer.buttons
+        action = self.renderer.action_at(position)
         if self.state.screen == ScreenState.MENU:
-            if buttons.get("start") and buttons["start"].collidepoint(position):
+            if action == UIAction.START_CAMPAIGN:
                 self.state.start_phase(1)
-            elif buttons.get("quit") and buttons["quit"].collidepoint(position):
+            elif action == UIAction.QUIT:
                 self.running = False
             return
         if self.state.screen == ScreenState.PHASE_INTRO:
-            if buttons.get("start_phase") and buttons["start_phase"].collidepoint(position):
+            if action == UIAction.START_PHASE:
                 self.state.start_phase(self.state.phase_number)
             return
         if self.state.screen == ScreenState.FINISHED:
-            if buttons.get("menu") and buttons["menu"].collidepoint(position):
+            if action == UIAction.RETURN_TO_MENU:
                 self.state.return_to_menu()
             return
         if self.state.screen != ScreenState.PLAYING or self.state.reset_at is not None:
@@ -87,8 +86,7 @@ class Game:
             return
         if self.state.selected is not None:
             if square in self.state.valid_moves:
-                if self.state.move(self.state.selected, square, now):
-                    self.transition_at = now + TRANSITION_MS
+                self.state.move(self.state.selected, square, now)
                 return
             self.state.clear_selection()
         piece = self.state.board.piece_at(square)
@@ -99,8 +97,8 @@ class Game:
             self.state.message = "Não é sua vez de mover esta peça."
 
     def _advance(self, now: int) -> None:
-        if self.state.screen == ScreenState.TRANSITION and self.transition_at is not None and now >= self.transition_at:
-            self.transition_at = None
+        if self.state.transition_ready(now):
+            self.state.consume_transition()
             if self.video.start(self.state.phase.videos):
                 self.state.screen = ScreenState.VIDEO
             else:
@@ -109,11 +107,8 @@ class Game:
             self._after_videos()
 
     def _after_videos(self) -> None:
-        if self.state.phase_number >= 3:
-            self.state.screen = ScreenState.FINISHED
-        else:
-            # O vídeo desaparece e o próximo tabuleiro é mostrado no mesmo frame.
-            self.state.start_phase(self.state.phase_number + 1)
+        # O vídeo desaparece e o próximo tabuleiro é mostrado no mesmo frame.
+        self.state.finish_video_sequence()
 
     def _draw(self) -> None:
         if self.state.screen == ScreenState.VIDEO:

@@ -14,11 +14,11 @@ LOGGER = logging.getLogger(__name__)
 
 
 class VideoPlayer:
-    def __init__(self) -> None:
+    def __init__(self, *, cv2_module: Any = None, pygame_module: Any = None) -> None:
         self._queue: deque[str] = deque()
         self._capture: Any = None
-        self._cv2: Any = None
-        self._pygame: Any = None
+        self._cv2: Any = cv2_module
+        self._pygame: Any = pygame_module
         self._frame_ended = False
         self._last_surface: Any = None
 
@@ -29,15 +29,16 @@ class VideoPlayer:
     def start(self, names: Iterable[str]) -> bool:
         self.stop()
         self._queue.extend(names)
-        try:
-            import cv2
-            import pygame
-        except ImportError:
-            LOGGER.warning("OpenCV ou Pygame indisponível; vídeos serão ignorados.")
-            self._queue.clear()
-            return False
-        self._cv2 = cv2
-        self._pygame = pygame
+        if self._cv2 is None or self._pygame is None:
+            try:
+                import cv2
+                import pygame
+            except ImportError:
+                LOGGER.warning("OpenCV ou Pygame indisponível; vídeos serão ignorados.")
+                self._queue.clear()
+                return False
+            self._cv2 = cv2
+            self._pygame = pygame
         return self._open_next()
 
     def _open_next(self) -> bool:

@@ -6,9 +6,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from .board import Board
-from .phases import Phase, get_phase
+from .phases import PHASES, Phase, get_phase
 from .piece import Piece, Square
 from .rules import apply_legal_move, is_checkmate, opponent
+
+WRONG_MOVE_RESET_MS = 3000
+WIN_TRANSITION_MS = 2500
 
 
 class ScreenState(str, Enum):
@@ -31,6 +34,7 @@ class GameState:
     message: str = ""
     last_move: str = ""
     reset_at: int | None = None
+    transition_at: int | None = None
 
     def start_phase(self, number: int) -> None:
         self.phase_number = number
@@ -41,6 +45,7 @@ class GameState:
         self.message = ""
         self.last_move = ""
         self.reset_at = None
+        self.transition_at = None
 
     def show_phase_intro(self, number: int) -> None:
         self.phase_number = number
@@ -48,6 +53,8 @@ class GameState:
         self.board = self.phase.create_board()
         self.screen = ScreenState.PHASE_INTRO
         self.clear_selection()
+        self.reset_at = None
+        self.transition_at = None
 
     def return_to_menu(self) -> None:
         self.phase_number = 1
@@ -57,6 +64,7 @@ class GameState:
         self.clear_selection()
         self.message = ""
         self.reset_at = None
+        self.transition_at = None
 
     def clear_selection(self) -> None:
         self.selected = None
@@ -78,14 +86,32 @@ class GameState:
         if won:
             self.message = "Movimento correto!"
             self.screen = ScreenState.TRANSITION
+            self.transition_at = now_ms + WIN_TRANSITION_MS
         else:
             self.message = "Movimento incorreto para vencer"
-            self.reset_at = now_ms + 3000
+            self.reset_at = now_ms + WRONG_MOVE_RESET_MS
         return won
 
     def update(self, now_ms: int) -> None:
         if self.reset_at is not None and now_ms >= self.reset_at:
             self.start_phase(self.phase_number)
+
+    def transition_ready(self, now_ms: int) -> bool:
+        return (
+            self.screen == ScreenState.TRANSITION
+            and self.transition_at is not None
+            and now_ms >= self.transition_at
+        )
+
+    def consume_transition(self) -> None:
+        self.transition_at = None
+
+    def finish_video_sequence(self) -> None:
+        """Avança a campanha após os vídeos, preservando o fluxo original."""
+        if self.phase_number >= max(PHASES):
+            self.screen = ScreenState.FINISHED
+        else:
+            self.start_phase(self.phase_number + 1)
 
 
 def notation(square: Square) -> str:

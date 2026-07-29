@@ -58,14 +58,20 @@ assets/                         imagens, ícone e vídeos originais
 src/xadrez_das_lendas/
   __init__.py                   metadados do pacote
   __main__.py                   entrada de `python -m`
+  asset_catalog.py              catálogo central de imagens das peças
   board.py                      tabuleiro e operações estruturais
   game.py                       aplicação e loop de eventos
   paths.py                      localização centralizada de assets
-  phases.py                     posições e objetivos das fases
+  phase_models.py               modelos imutáveis de configuração
+  phases.py                     dados, posições e objetivos das fases
   piece.py                      modelo independente de interface
-  renderer.py                   desenho com Pygame
+  renderer.py                   composição do tabuleiro com Pygame
   rules.py                      movimentos, ataques, xeque e mate
   state.py                      máquina de estados e temporizadores
+  ui_actions.py                 ações de interface sem nomes de botões
+  ui_components.py              textos, botões e indicadores reutilizáveis
+  ui_geometry.py                conversão de cliques em casas do tabuleiro
+  ui_screens.py                 menu, introdução e encerramento
   video.py                      reprodução interna com OpenCV
 tests/                          testes automatizados
 pyproject.toml                  instalação, dependências e ferramentas
