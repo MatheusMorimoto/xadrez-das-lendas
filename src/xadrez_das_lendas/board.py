@@ -10,6 +10,7 @@ from .piece import Color, Piece, Square
 @dataclass
 class Board:
     pieces: list[Piece] = field(default_factory=list)
+    en_passant: Square | None = None
 
     def piece_at(self, square: Square) -> Piece | None:
         return next((piece for piece in self.pieces if piece.square == square), None)
@@ -21,7 +22,7 @@ class Board:
         )
 
     def clone(self) -> Board:
-        return Board([piece.copy() for piece in self.pieces])
+        return Board([piece.copy() for piece in self.pieces], self.en_passant)
 
     def validate(self) -> list[str]:
         errors: list[str] = []
@@ -42,9 +43,27 @@ class Board:
         if piece is None:
             raise ValueError(f"Não existe peça em {origin}")
         captured = self.piece_at(target)
+        if piece.tipo == "peao" and captured is None and target == self.en_passant:
+            captured = self.piece_at((origin[0], target[1]))
         if captured is not None:
             if captured.tipo == "rei":
                 raise ValueError("O rei não pode ser capturado")
             self.pieces.remove(captured)
+        if piece.tipo == "rei" and abs(target[1] - origin[1]) == 2:
+            rook_origin = (origin[0], 7 if target[1] > origin[1] else 0)
+            rook_target = (origin[0], 5 if target[1] > origin[1] else 3)
+            rook = self.piece_at(rook_origin)
+            if rook is not None:
+                rook.row, rook.col = rook_target
+                rook.moved = True
+        self.en_passant = None
+        if piece.tipo == "peao" and abs(target[0] - origin[0]) == 2:
+            self.en_passant = ((origin[0] + target[0]) // 2, origin[1])
         piece.row, piece.col = target
+        piece.moved = True
+        if piece.tipo == "peao" and target[0] in (0, 7):
+            from .asset_catalog import piece_asset
+
+            piece.tipo = "rainha"
+            piece.asset_name = piece_asset("rainha", piece.cor)
         return piece

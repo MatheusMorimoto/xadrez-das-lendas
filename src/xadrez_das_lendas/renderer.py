@@ -32,6 +32,8 @@ class Renderer:
         self.font = pygame.font.SysFont("Arial", int(24 * scale))
         self.images: dict[tuple[str, int], Any] = {}
         self.menu_background = self._load_background()
+        self.about_background = self._load_about_background()
+        self.creator_portraits = self._load_creator_portraits()
         self.screens = ScreenPainter(pygame, screen, scale)
 
     def _load_background(self) -> Any | None:
@@ -57,10 +59,45 @@ class Renderer:
         self.images[key] = image
         return image
 
+    def _load_about_background(self) -> Any | None:
+        try:
+            image = self.pg.image.load(str(asset_path("tabuleiro.png"))).convert()
+            return self.pg.transform.smoothscale(image, (self.width, self.height))
+        except (FileNotFoundError, self.pg.error) as exc:
+            LOGGER.error("Falha ao carregar fundo da tela Sobre o Jogo: %s", exc)
+            return None
+
+    def _load_creator_portraits(self) -> dict[str, Any]:
+        portraits = {
+            "Matheus Morimoto": "Matheus_Morimoto.jpeg",
+            "Ademar Pedro": "Ademar.jpeg",
+            "João Victtor": "João_Victtor.jpeg",
+        }
+        size = int(122 * self.scale)
+        loaded: dict[str, Any] = {}
+        for name, filename in portraits.items():
+            try:
+                image = self.pg.image.load(str(asset_path(filename))).convert_alpha()
+                source = image.get_rect()
+                side = min(source.width, source.height)
+                crop = self.pg.Rect((source.width - side) // 2, (source.height - side) // 2, side, side)
+                loaded[name] = self.pg.transform.smoothscale(image.subsurface(crop), (size, size))
+            except (FileNotFoundError, self.pg.error) as exc:
+                LOGGER.error("Falha ao carregar foto de %s: %s", name, exc)
+        return loaded
+
     def draw(self, state: GameState) -> None:
         self.screens.begin_frame()
         if state.screen == ScreenState.MENU:
             self.screens.menu(self.menu_background)
+        elif state.screen == ScreenState.ABOUT:
+            self.screens.about(self.about_background, self.creator_portraits)
+        elif state.screen == ScreenState.VERSUS_MENU:
+            self.screens.versus_menu(self.about_background)
+        elif state.screen == ScreenState.DIFFICULTY:
+            self.screens.difficulty(self.about_background)
+        elif state.screen == ScreenState.VERSUS_PLAYING and state.versus is not None:
+            self._versus_game(state.versus)
         elif state.screen == ScreenState.PHASE_INTRO:
             self.screens.phase_intro(state.phase_number)
         elif state.screen in (ScreenState.PLAYING, ScreenState.TRANSITION):
@@ -96,7 +133,8 @@ class Renderer:
         for piece in state.board.pieces:
             draw_row = 7 - piece.row if inverted else piece.row
             self.screen.blit(
-                self._piece_image(piece), (piece.col * self.cell + self.margin, draw_row * self.cell + self.margin)
+                self._piece_image(piece),
+                (piece.col * self.cell + self.margin, draw_row * self.cell + self.margin),
             )
         self.screens.components.turn_indicator(state.phase.turn, self.margin)
         if state.message and state.screen == ScreenState.PLAYING:
@@ -107,6 +145,51 @@ class Renderer:
                 16,
                 True,
             )
+
+    def _versus_game(self, match: Any) -> None:
+        self.screen.fill(WOOD)
+        board = match.board
+        inverted = match.inverted
+        board_size = self.cell * 8
+        self.pg.draw.rect(self.screen, BLACK, (self.margin - 2, self.margin - 2, board_size + 4, board_size + 4), 2)
+        for row in range(8):
+            for col in range(8):
+                draw_row = 7 - row if inverted else row
+                draw_col = 7 - col if inverted else col
+                color = LIGHT_GREEN if (row + col) % 2 == 0 else DARK_GREEN
+                self.pg.draw.rect(
+                    self.screen,
+                    color,
+                    (draw_col * self.cell + self.margin, draw_row * self.cell + self.margin, self.cell, self.cell),
+                )
+        self.screens.components.coordinates(
+            inverted,
+            cell=self.cell,
+            margin=self.margin,
+            font=self.font,
+            rotate_files=True,
+        )
+        for row, col in match.valid_moves:
+            draw_row = 7 - row if inverted else row
+            draw_col = 7 - col if inverted else col
+            self.pg.draw.circle(
+                self.screen,
+                GREEN,
+                (draw_col * self.cell + self.margin + self.cell // 2, draw_row * self.cell + self.margin + self.cell // 2),
+                max(5, int(10 * self.scale)),
+            )
+        for piece in board.pieces:
+            draw_row = 7 - piece.row if inverted else piece.row
+            draw_col = 7 - piece.col if inverted else piece.col
+            self.screen.blit(self._piece_image(piece), (draw_col * self.cell + self.margin, draw_row * self.cell + self.margin))
+        self.screens.components.turn_indicator(match.turn, self.margin)
+        self.screens.versus_hud(match.message, match.hints_left)
+
+    def versus_square(self, position: tuple[int, int], inverted: bool) -> Square | None:
+        square = board_square(position, cell=self.cell, margin=self.margin, inverted=inverted)
+        if square is None or not inverted:
+            return square
+        return square[0], 7 - square[1]
 
     def board_square(self, position: tuple[int, int], inverted: bool) -> Square | None:
         return board_square(position, cell=self.cell, margin=self.margin, inverted=inverted)

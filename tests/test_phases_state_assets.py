@@ -58,6 +58,15 @@ def test_phase_intro_and_return_to_menu_are_real_states():
     assert state.phase_number == 1
 
 
+def test_about_screen_and_return_to_menu():
+    state = GameState()
+    state.show_about()
+    assert state.screen == ScreenState.ABOUT
+
+    state.return_to_menu()
+    assert state.screen == ScreenState.MENU
+
+
 def test_phase_three_objective_is_configured_not_hardcoded_in_state():
     phase = get_phase(3)
     assert phase.objective == "target"

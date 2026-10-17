@@ -95,3 +95,8 @@ Movimentos legais que não resolvem o puzzle restauram a fase após três segund
 ## Assets e vídeos
 
 Os nomes são sensíveis a maiúsculas e minúsculas: `YARA.mp4`, `cucacaldeirao.mp4`, `cuca.mp4` e `boitata.mp4`. OpenCV reproduz os frames dentro da janela, enquanto o mixer do Pygame toca as trilhas OGG correspondentes em volume total. A interface usa pygame-ce, implementação compatível importada como `pygame`. Se um vídeo ou áudio falhar, o erro é registrado e o jogo avança sem bloquear.
+
+git status
+git add .
+git commit -m "Refatora projeto e organiza assets e interface"
+git push

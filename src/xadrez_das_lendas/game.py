@@ -9,6 +9,7 @@ from .rules import legal_moves
 from .state import GameState, ScreenState
 from .ui_actions import UIAction
 from .video import VideoPlayer
+from .versus import choose_machine_move
 
 LOGGER = logging.getLogger(__name__)
 FPS = 30
@@ -67,8 +68,38 @@ class Game:
         if self.state.screen == ScreenState.MENU:
             if action == UIAction.START_CAMPAIGN:
                 self.state.start_phase(1)
+            elif action == UIAction.SHOW_VERSUS:
+                self.state.show_versus_menu()
+            elif action == UIAction.SHOW_ABOUT:
+                self.state.show_about()
             elif action == UIAction.QUIT:
                 self.running = False
+            return
+        if self.state.screen == ScreenState.VERSUS_MENU:
+            if action == UIAction.PLAY_MACHINE:
+                self.state.show_difficulty()
+            elif action == UIAction.PLAY_PERSON:
+                self.state.start_versus("person")
+            elif action == UIAction.RETURN_TO_MENU:
+                self.state.return_to_menu()
+            return
+        if self.state.screen == ScreenState.DIFFICULTY:
+            levels = {
+                UIAction.LEVEL_EASY: 1,
+                UIAction.LEVEL_MEDIUM: 2,
+                UIAction.LEVEL_HARD: 3,
+            }
+            if action in levels:
+                self.state.start_versus("machine", levels[action])
+            elif action == UIAction.RETURN_TO_MENU:
+                self.state.show_versus_menu()
+            return
+        if self.state.screen == ScreenState.VERSUS_PLAYING:
+            self._versus_click(position, action)
+            return
+        if self.state.screen == ScreenState.ABOUT:
+            if action == UIAction.RETURN_TO_MENU:
+                self.state.return_to_menu()
             return
         if self.state.screen == ScreenState.PHASE_INTRO:
             if action == UIAction.START_PHASE:
@@ -96,7 +127,41 @@ class Game:
         elif piece is not None:
             self.state.message = "Não é sua vez de mover esta peça."
 
+    def _versus_click(self, position: tuple[int, int], action: UIAction | None) -> None:
+        match = self.state.versus
+        if match is None or match.finished:
+            return
+        if action == UIAction.HINT:
+            match.hint()
+            return
+        if match.mode == "machine" and match.turn != match.human_color:
+            return
+        square = self.renderer.versus_square(position, match.inverted)
+        if square is None:
+            match.selected = None
+            match.valid_moves = []
+            return
+        if match.selected is not None and square in match.valid_moves:
+            match.play(match.selected, square)
+            return
+        match.selected = None
+        match.valid_moves = []
+        piece = match.board.piece_at(square)
+        if piece is not None and piece.cor == match.turn:
+            from .rules import legal_moves
+
+            match.selected = square
+            match.valid_moves = legal_moves(piece, match.board)
+        elif piece is not None:
+            match.message = "Escolha uma peça da cor da vez."
+
     def _advance(self, now: int) -> None:
+        if self.state.screen == ScreenState.VERSUS_PLAYING and self.state.versus is not None:
+            match = self.state.versus
+            if match.mode == "machine" and not match.finished and match.turn != match.human_color:
+                origin, target = choose_machine_move(match.board, match.turn, match.difficulty)
+                match.play(origin, target)
+            return
         if self.state.transition_ready(now):
             self.state.consume_transition()
             if self.video.start(self.state.phase.videos):

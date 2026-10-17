@@ -40,9 +40,18 @@ class InterfaceComponents:
             [(center_x, tip_y), (center_x - head, tip_y + head), (center_x + head, tip_y + head)],
         )
 
-    def coordinates(self, inverted: bool, *, cell: int, margin: int, font: Any) -> None:
+    def coordinates(
+        self,
+        inverted: bool,
+        *,
+        cell: int,
+        margin: int,
+        font: Any,
+        rotate_files: bool = False,
+    ) -> None:
         for col in range(8):
-            text = font.render(chr(ord("A") + col), True, BLACK)
+            file_index = 7 - col if inverted and rotate_files else col
+            text = font.render(chr(ord("A") + file_index), True, BLACK)
             x = col * cell + margin + (cell - text.get_width()) // 2
             self.screen.blit(text, (x, 4))
             self.screen.blit(text, (x, self.height - margin + 4))
@@ -73,12 +82,73 @@ class InterfaceComponents:
         surface = font.render(value, True, color)
         self.screen.blit(surface, surface.get_rect(center=(self.width // 2, y)))
 
+    def wrapped_text(
+        self,
+        value: str,
+        rect: Any,
+        color: tuple[int, int, int],
+        size: int,
+        *,
+        line_spacing: float = 1.25,
+    ) -> int:
+        """Desenha texto centralizado e quebrado dentro de uma largura."""
+        font = self.pg.font.SysFont("Arial", max(12, int(size * self.scale)))
+        lines: list[str] = []
+        for paragraph in value.split("\n"):
+            line = ""
+            for word in paragraph.split():
+                candidate = f"{line} {word}".strip()
+                if line and font.size(candidate)[0] > rect.width:
+                    lines.append(line)
+                    line = word
+                else:
+                    line = candidate
+            if line:
+                lines.append(line)
+        line_height = int(font.get_linesize() * line_spacing)
+        for index, line in enumerate(lines):
+            surface = font.render(line, True, color)
+            self.screen.blit(surface, surface.get_rect(center=(rect.centerx, rect.top + index * line_height)))
+        return len(lines) * line_height
+
     def button(self, label: str, center_y: int) -> Any:
         width, height = int(330 * self.scale), int(64 * self.scale)
         rect = self.pg.Rect((self.width - width) // 2, center_y - height // 2, width, height)
         color = BUTTON_HOVER if rect.collidepoint(self.pg.mouse.get_pos()) else BUTTON
         self.pg.draw.rect(self.screen, color, rect, border_radius=max(4, int(10 * self.scale)))
-        self.center_text(label, center_y, WHITE, 27, True)
+        font_size = max(12, int(27 * self.scale))
+        font = self.pg.font.SysFont("Arial", font_size, bold=True)
+        while font.size(label)[0] > rect.width - int(20 * self.scale) and font_size > 12:
+            font_size -= 1
+            font = self.pg.font.SysFont("Arial", font_size, bold=True)
+        text = font.render(label, True, WHITE)
+        self.screen.blit(text, text.get_rect(center=rect.center))
+        return rect
+
+    def board_button(self, label: str, center_y: int) -> Any:
+        """Botão integrado à paleta verde e marrom do tabuleiro."""
+        width, height = int(330 * self.scale), int(64 * self.scale)
+        rect = self.pg.Rect((self.width - width) // 2, center_y - height // 2, width, height)
+        hovered = rect.collidepoint(self.pg.mouse.get_pos())
+        surface = self.pg.Surface((rect.width, rect.height), self.pg.SRCALPHA)
+        color = (62, 88, 31, 235) if hovered else (45, 27, 12, 218)
+        radius = max(4, int(10 * self.scale))
+        self.pg.draw.rect(surface, color, surface.get_rect(), border_radius=radius)
+        self.screen.blit(surface, rect.topleft)
+        self.pg.draw.rect(
+            self.screen,
+            WHITE,
+            rect,
+            max(1, int(2 * self.scale)),
+            border_radius=radius,
+        )
+        font_size = max(12, int(27 * self.scale))
+        font = self.pg.font.SysFont("Arial", font_size, bold=True)
+        while font.size(label)[0] > rect.width - int(20 * self.scale) and font_size > 12:
+            font_size -= 1
+            font = self.pg.font.SysFont("Arial", font_size, bold=True)
+        text = font.render(label, True, WHITE)
+        self.screen.blit(text, text.get_rect(center=rect.center))
         return rect
 
     def menu_button(

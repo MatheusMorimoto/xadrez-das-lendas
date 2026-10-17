@@ -9,6 +9,7 @@ from .board import Board
 from .phases import PHASES, Phase, get_phase
 from .piece import Piece, Square
 from .rules import apply_legal_move, is_checkmate, opponent
+from .versus import VersusMatch
 
 WRONG_MOVE_RESET_MS = 3000
 WIN_TRANSITION_MS = 2500
@@ -16,6 +17,10 @@ WIN_TRANSITION_MS = 2500
 
 class ScreenState(str, Enum):
     MENU = "menu"
+    ABOUT = "about"
+    VERSUS_MENU = "versus_menu"
+    DIFFICULTY = "difficulty"
+    VERSUS_PLAYING = "versus_playing"
     PLAYING = "playing"
     TRANSITION = "transition"
     VIDEO = "video"
@@ -35,6 +40,7 @@ class GameState:
     last_move: str = ""
     reset_at: int | None = None
     transition_at: int | None = None
+    versus: VersusMatch | None = None
 
     def start_phase(self, number: int) -> None:
         self.phase_number = number
@@ -65,6 +71,31 @@ class GameState:
         self.message = ""
         self.reset_at = None
         self.transition_at = None
+
+    def show_about(self) -> None:
+        self.screen = ScreenState.ABOUT
+        self.clear_selection()
+
+    def show_versus_menu(self) -> None:
+        self.screen = ScreenState.VERSUS_MENU
+        self.versus = None
+        self.clear_selection()
+
+    def show_difficulty(self) -> None:
+        self.screen = ScreenState.DIFFICULTY
+
+    def start_versus(self, mode: str, difficulty: int = 1) -> None:
+        import random
+
+        color = random.choice(("branca", "preta"))
+        if mode == "machine":
+            self.versus = VersusMatch("machine", difficulty=difficulty, human_color=color)
+            self.versus.message = f"Sorteio: você joga com as {color}s. Vez das brancas."
+        else:
+            self.versus = VersusMatch("person", player_one_color=color)
+            other = "preta" if color == "branca" else "branca"
+            self.versus.message = f"Sorteio: jogador 1 = {color}s; jogador 2 = {other}s."
+        self.screen = ScreenState.VERSUS_PLAYING
 
     def clear_selection(self) -> None:
         self.selected = None

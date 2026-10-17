@@ -17,6 +17,7 @@ class Piece:
     row: int
     col: int
     asset_name: str
+    moved: bool = False
 
     @property
     def square(self) -> Square:
