@@ -8,8 +8,8 @@ from .renderer import Renderer
 from .rules import legal_moves
 from .state import GameState, ScreenState
 from .ui_actions import UIAction
-from .video import VideoPlayer
 from .versus import choose_machine_move
+from .video import VideoPlayer
 
 LOGGER = logging.getLogger(__name__)
 FPS = 30
@@ -55,6 +55,8 @@ class Game:
             elif event.type == self.pg.KEYDOWN and event.key == self.pg.K_ESCAPE:
                 if self.state.screen == ScreenState.VIDEO:
                     self.video.stop()
+                    self._after_videos()
+                elif self.state.screen == ScreenState.VICTORY_IMAGE:
                     self._after_videos()
                 elif self.state.screen == ScreenState.MENU:
                     self.running = False
@@ -164,11 +166,13 @@ class Game:
             return
         if self.state.transition_ready(now):
             self.state.consume_transition()
-            if self.video.start(self.state.phase.videos):
+            if self.state.phase.victory_image:
+                self.state.show_victory_image(now)
+            elif self.video.start(self.state.phase.videos):
                 self.state.screen = ScreenState.VIDEO
             else:
                 self._after_videos()
-        elif self.state.screen == ScreenState.VIDEO and not self.video.active:
+        elif self.state.victory_image_ready(now) or self.state.screen == ScreenState.VIDEO and not self.video.active:
             self._after_videos()
 
     def _after_videos(self) -> None:
@@ -176,7 +180,9 @@ class Game:
         self.state.finish_video_sequence()
 
     def _draw(self) -> None:
-        if self.state.screen == ScreenState.VIDEO:
+        if self.state.screen == ScreenState.VICTORY_IMAGE and self.state.phase.victory_image:
+            self.renderer.draw_victory_image(self.state.phase.victory_image)
+        elif self.state.screen == ScreenState.VIDEO:
             surface = self.video.next_surface(self.screen.get_size())
             if surface is not None:
                 self.screen.blit(surface, (0, 0))

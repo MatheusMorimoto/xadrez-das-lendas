@@ -24,6 +24,7 @@ class ScreenState(str, Enum):
     PLAYING = "playing"
     TRANSITION = "transition"
     VIDEO = "video"
+    VICTORY_IMAGE = "victory_image"
     PHASE_INTRO = "phase_intro"
     FINISHED = "finished"
 
@@ -40,6 +41,7 @@ class GameState:
     last_move: str = ""
     reset_at: int | None = None
     transition_at: int | None = None
+    victory_image_until: int | None = None
     versus: VersusMatch | None = None
 
     def start_phase(self, number: int) -> None:
@@ -52,6 +54,7 @@ class GameState:
         self.last_move = ""
         self.reset_at = None
         self.transition_at = None
+        self.victory_image_until = None
 
     def show_phase_intro(self, number: int) -> None:
         self.phase_number = number
@@ -61,6 +64,7 @@ class GameState:
         self.clear_selection()
         self.reset_at = None
         self.transition_at = None
+        self.victory_image_until = None
 
     def return_to_menu(self) -> None:
         self.phase_number = 1
@@ -71,6 +75,7 @@ class GameState:
         self.message = ""
         self.reset_at = None
         self.transition_at = None
+        self.victory_image_until = None
 
     def show_about(self) -> None:
         self.screen = ScreenState.ABOUT
@@ -136,6 +141,17 @@ class GameState:
 
     def consume_transition(self) -> None:
         self.transition_at = None
+
+    def show_victory_image(self, now_ms: int) -> None:
+        self.screen = ScreenState.VICTORY_IMAGE
+        self.victory_image_until = now_ms + self.phase.victory_image_ms
+
+    def victory_image_ready(self, now_ms: int) -> bool:
+        return (
+            self.screen == ScreenState.VICTORY_IMAGE
+            and self.victory_image_until is not None
+            and now_ms >= self.victory_image_until
+        )
 
     def finish_video_sequence(self) -> None:
         """Avança a campanha após os vídeos, preservando o fluxo original."""

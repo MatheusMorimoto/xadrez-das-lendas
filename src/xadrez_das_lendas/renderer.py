@@ -32,6 +32,7 @@ class Renderer:
         self.font = pygame.font.SysFont("Arial", int(24 * scale))
         self.images: dict[tuple[str, int], Any] = {}
         self.menu_background = self._load_background()
+        self.victory_images: dict[str, Any] = {}
         self.about_background = self._load_about_background()
         self.creator_portraits = self._load_creator_portraits()
         self.screens = ScreenPainter(pygame, screen, scale)
@@ -106,6 +107,19 @@ class Renderer:
                 self.screens.components.message_box(state.message, state.last_move)
         elif state.screen == ScreenState.FINISHED:
             self.screens.finished()
+
+    def draw_victory_image(self, name: str) -> None:
+        image = self.victory_images.get(name)
+        if image is None:
+            try:
+                source = self.pg.image.load(str(asset_path(name))).convert()
+                image = self.pg.transform.smoothscale(source, (self.width, self.height))
+            except (FileNotFoundError, self.pg.error) as exc:
+                LOGGER.error("Falha ao carregar imagem de vitoria %s: %s", name, exc)
+                image = self.pg.Surface((self.width, self.height))
+                image.fill(BLACK)
+            self.victory_images[name] = image
+        self.screen.blit(image, (0, 0))
 
     def _game(self, state: GameState) -> None:
         self.screen.fill(WOOD)

@@ -7,6 +7,40 @@ from .phase_models import P, Phase
 PHASES: dict[int, Phase] = {
     1: Phase(
         1,
+        "preta",
+        False,
+        (
+            P(6, 6, "rei", "branca"),
+            P(5, 2, "rainha", "branca"),
+            P(7, 5, "torre", "branca"),
+            P(6, 4, "torre", "branca", 2),
+            P(6, 0, "bispo", "branca"),
+            P(0, 5, "bispo", "branca", 2),
+            P(4, 0, "peao", "branca", 1),
+            P(6, 1, "peao", "branca", 2),
+            P(6, 2, "peao", "branca", 3),
+            P(6, 5, "peao", "branca", 4),
+            P(5, 6, "peao", "branca", 5),
+            P(6, 7, "peao", "branca", 6),
+            P(0, 6, "rei", "preta"),
+            P(3, 7, "torre", "preta"),
+            P(5, 5, "cavalo", "preta"),
+            P(2, 5, "cavalo", "preta", 2),
+            P(1, 1, "peao", "preta", 1),
+            P(2, 2, "peao", "preta", 2),
+            P(4, 4, "peao", "preta", 3),
+            P(1, 5, "peao", "preta", 4),
+            P(1, 6, "peao", "preta", 5),
+            P(2, 7, "peao", "preta", 6),
+        ),
+        objective="target",
+        target_piece="torre",
+        target_square=(6, 7),
+        victory_image="minhocão.jpeg",
+        victory_image_ms=10_000,
+    ),
+    2: Phase(
+        2,
         "branca",
         False,
         (
@@ -17,8 +51,8 @@ PHASES: dict[int, Phase] = {
         ),
         videos=("YARA.mp4",),
     ),
-    2: Phase(
-        2,
+    3: Phase(
+        3,
         "preta",
         True,
         (
@@ -49,8 +83,8 @@ PHASES: dict[int, Phase] = {
         ),
         videos=("cucacaldeirao.mp4",),
     ),
-    3: Phase(
-        3,
+    4: Phase(
+        4,
         "preta",
         True,
         (

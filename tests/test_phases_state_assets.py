@@ -7,6 +7,7 @@ from xadrez_das_lendas.state import GameState, ScreenState
 def all_required_assets():
     names = {setup.asset for phase in PHASES.values() for setup in phase.pieces}
     names |= {video for phase in PHASES.values() for video in phase.videos}
+    names |= {phase.victory_image for phase in PHASES.values() if phase.victory_image}
     names |= {f"{video.removesuffix('.mp4')}.ogg" for phase in PHASES.values() for video in phase.videos}
     names.add("tela_inicio.png")
     return names
@@ -26,7 +27,12 @@ def test_all_required_assets_exist_with_exact_case():
 
 
 def test_each_phase_has_a_winning_move():
-    expected = {1: ((1, 4), (1, 7)), 2: ((5, 7), (6, 5)), 3: ((4, 5), (3, 6))}
+    expected = {
+        1: ((3, 7), (6, 7)),
+        2: ((1, 4), (1, 7)),
+        3: ((5, 7), (6, 5)),
+        4: ((4, 5), (3, 6)),
+    }
     for number, (origin, target) in expected.items():
         state = GameState()
         state.start_phase(number)
@@ -38,12 +44,12 @@ def test_each_phase_has_a_winning_move():
 def test_wrong_move_schedules_and_performs_reset():
     state = GameState()
     state.start_phase(1)
-    assert not state.move((1, 4), (1, 5), now_ms=100)
+    assert not state.move((3, 7), (4, 7), now_ms=100)
     assert state.reset_at == 3100
     state.update(3099)
-    assert state.board.piece_at((1, 5)) is not None
+    assert state.board.piece_at((4, 7)) is not None
     state.update(3100)
-    assert state.board.piece_at((1, 4)) is not None
+    assert state.board.piece_at((3, 7)) is not None
     assert state.reset_at is None
 
 
@@ -68,7 +74,7 @@ def test_about_screen_and_return_to_menu():
 
 
 def test_phase_three_objective_is_configured_not_hardcoded_in_state():
-    phase = get_phase(3)
+    phase = get_phase(4)
     assert phase.objective == "target"
     assert phase.target_piece == "rainha"
     assert phase.target_square == (3, 6)

@@ -1,6 +1,6 @@
 # Xadrez das Lendas ♟️
 
-Jogo de puzzles progressivos de xadrez desenvolvido em Python, com três fases e transições em vídeo inspiradas em lendas brasileiras.
+Jogo de puzzles progressivos de xadrez desenvolvido em Python, com quatro fases e transições inspiradas em lendas brasileiras.
 
 ## Requisitos
 
