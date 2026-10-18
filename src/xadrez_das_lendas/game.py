@@ -55,7 +55,7 @@ class Game:
             elif event.type == self.pg.KEYDOWN and event.key == self.pg.K_ESCAPE:
                 if self.state.screen == ScreenState.VIDEO:
                     self.video.stop()
-                    self._after_videos()
+                    self._after_video_playback(now)
                 elif self.state.screen == ScreenState.VICTORY_IMAGE:
                     self._after_videos()
                 elif self.state.screen == ScreenState.MENU:
@@ -166,13 +166,24 @@ class Game:
             return
         if self.state.transition_ready(now):
             self.state.consume_transition()
-            if self.state.phase.victory_image:
+            if self.state.phase.victory_image and not self.state.phase.victory_image_after_videos:
                 self.state.show_victory_image(now)
             elif self.video.start(self.state.phase.videos):
                 self.state.screen = ScreenState.VIDEO
+            elif self.state.phase.victory_image:
+                self.state.show_victory_image(now)
             else:
                 self._after_videos()
         elif self.state.victory_image_ready(now) or self.state.screen == ScreenState.VIDEO and not self.video.active:
+            if self.state.screen == ScreenState.VIDEO:
+                self._after_video_playback(now)
+            else:
+                self._after_videos()
+
+    def _after_video_playback(self, now: int) -> None:
+        if self.state.phase.victory_image and self.state.phase.victory_image_after_videos:
+            self.state.show_victory_image(now)
+        else:
             self._after_videos()
 
     def _after_videos(self) -> None:
@@ -187,7 +198,7 @@ class Game:
             if surface is not None:
                 self.screen.blit(surface, (0, 0))
             else:
-                self._after_videos()
+                self._after_video_playback(self.pg.time.get_ticks())
                 self.renderer.draw(self.state)
         else:
             self.renderer.draw(self.state)

@@ -20,6 +20,11 @@ def test_all_phases_are_structurally_valid():
         assert len({piece.square for piece in board.pieces}) == len(board.pieces)
 
 
+def test_first_phase_uses_black_player_perspective():
+    assert get_phase(1).turn == "preta"
+    assert get_phase(1).inverted is True
+
+
 def test_all_required_assets_exist_with_exact_case():
     assert validate_assets(all_required_assets()) == []
     for name in all_required_assets():

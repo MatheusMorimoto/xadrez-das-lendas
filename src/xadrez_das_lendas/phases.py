@@ -8,7 +8,7 @@ PHASES: dict[int, Phase] = {
     1: Phase(
         1,
         "preta",
-        False,
+        True,
         (
             P(6, 6, "rei", "branca"),
             P(5, 2, "rainha", "branca"),
@@ -50,6 +50,9 @@ PHASES: dict[int, Phase] = {
             P(0, 7, "rei", "preta"),
         ),
         videos=("YARA.mp4",),
+        victory_image="Beijo_morte.jpeg",
+        victory_image_ms=10_000,
+        victory_image_after_videos=True,
     ),
     3: Phase(
         3,

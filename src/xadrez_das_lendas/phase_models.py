@@ -37,6 +37,7 @@ class Phase:
     videos: tuple[str, ...] = ()
     victory_image: str | None = None
     victory_image_ms: int = 0
+    victory_image_after_videos: bool = False
 
     def create_board(self) -> Board:
         return Board([Piece(p.tipo, p.cor, p.row, p.col, p.asset) for p in self.pieces])
