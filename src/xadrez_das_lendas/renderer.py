@@ -31,6 +31,7 @@ class Renderer:
         self.width, self.height = screen.get_size()
         self.font = pygame.font.SysFont("Arial", int(24 * scale))
         self.images: dict[tuple[str, int], Any] = {}
+        self.menu_background_rect = pygame.Rect(0, 0, self.width, self.height)
         self.menu_background = self._load_background()
         self.victory_images: dict[str, Any] = {}
         self.about_background = self._load_about_background()
@@ -39,8 +40,42 @@ class Renderer:
 
     def _load_background(self) -> Any | None:
         try:
-            image = self.pg.image.load(str(asset_path("tela_inicio.png"))).convert()
-            return self.pg.transform.scale(image, (self.width, self.height))
+            image = self.pg.image.load(str(asset_path("tela_inicio.jpeg"))).convert()
+            source_width, source_height = image.get_size()
+
+            cover_factor = max(self.width / source_width, self.height / source_height)
+            cover_size = (round(source_width * cover_factor), round(source_height * cover_factor))
+            cover = self.pg.transform.smoothscale(image, cover_size)
+            cover_rect = cover.get_rect(center=(self.width // 2, self.height // 2))
+            background = self.pg.Surface((self.width, self.height))
+            background.blit(cover, cover_rect)
+            shade = self.pg.Surface((self.width, self.height), self.pg.SRCALPHA)
+            shade.fill((0, 0, 0, 145))
+            background.blit(shade, (0, 0))
+
+            factor = min(self.width / source_width, self.height / source_height)
+            target_size = (round(source_width * factor), round(source_height * factor))
+            scaled = self.pg.transform.smoothscale(image, target_size)
+            self.menu_background_rect = scaled.get_rect(center=(self.width // 2, self.height // 2))
+            background.blit(scaled, self.menu_background_rect)
+            edge_blend = min(32, self.menu_background_rect.width // 8)
+            blend = self.pg.Surface((self.width, self.height), self.pg.SRCALPHA)
+            for offset in range(edge_blend):
+                alpha = round(145 * (edge_blend - offset) / edge_blend)
+                self.pg.draw.line(
+                    blend,
+                    (0, 0, 0, alpha),
+                    (self.menu_background_rect.left + offset, 0),
+                    (self.menu_background_rect.left + offset, self.height),
+                )
+                self.pg.draw.line(
+                    blend,
+                    (0, 0, 0, alpha),
+                    (self.menu_background_rect.right - 1 - offset, 0),
+                    (self.menu_background_rect.right - 1 - offset, self.height),
+                )
+            background.blit(blend, (0, 0))
+            return background
         except (FileNotFoundError, self.pg.error) as exc:
             LOGGER.error("Falha ao carregar fundo do menu: %s", exc)
             return None
@@ -90,7 +125,7 @@ class Renderer:
     def draw(self, state: GameState) -> None:
         self.screens.begin_frame()
         if state.screen == ScreenState.MENU:
-            self.screens.menu(self.menu_background)
+            self.screens.menu(self.menu_background, self.menu_background_rect)
         elif state.screen == ScreenState.ABOUT:
             self.screens.about(self.about_background, self.creator_portraits)
         elif state.screen == ScreenState.VERSUS_MENU:
@@ -107,6 +142,14 @@ class Renderer:
                 self.screens.components.message_box(state.message, state.last_move)
         elif state.screen == ScreenState.FINISHED:
             self.screens.finished()
+
+    def draw_podium(self, ranking: Any, records: Any, page: int, pages: int) -> None:
+        self.screens.begin_frame()
+        self.screens.podium(self.about_background, ranking, records, page, pages)
+
+    def draw_match_record(self, record: Any, page: int, pages: int) -> None:
+        self.screens.begin_frame()
+        self.screens.match_record(record, page, pages)
 
     def draw_victory_image(self, name: str) -> None:
         image = self.victory_images.get(name)
@@ -189,13 +232,19 @@ class Renderer:
             self.pg.draw.circle(
                 self.screen,
                 GREEN,
-                (draw_col * self.cell + self.margin + self.cell // 2, draw_row * self.cell + self.margin + self.cell // 2),
+                (
+                    draw_col * self.cell + self.margin + self.cell // 2,
+                    draw_row * self.cell + self.margin + self.cell // 2,
+                ),
                 max(5, int(10 * self.scale)),
             )
         for piece in board.pieces:
             draw_row = 7 - piece.row if inverted else piece.row
             draw_col = 7 - piece.col if inverted else piece.col
-            self.screen.blit(self._piece_image(piece), (draw_col * self.cell + self.margin, draw_row * self.cell + self.margin))
+            self.screen.blit(
+                self._piece_image(piece),
+                (draw_col * self.cell + self.margin, draw_row * self.cell + self.margin),
+            )
         self.screens.components.turn_indicator(match.turn, self.margin)
         self.screens.versus_hud(match.message, match.hints_left)
 

@@ -1,3 +1,4 @@
+from xadrez_das_lendas.game import MACHINE_THINK_MS, Game
 from xadrez_das_lendas.state import (
     WIN_TRANSITION_MS,
     WRONG_MOVE_RESET_MS,
@@ -82,3 +83,12 @@ def test_phase_intro_clears_pending_timers_and_starts_selected_phase():
     state.start_phase(state.phase_number)
     assert state.screen == ScreenState.PLAYING
     assert state.phase_number == 2
+
+
+def test_machine_thinking_timer_delays_the_move():
+    game = Game.__new__(Game)
+
+    game._start_machine_timer(500)
+
+    assert game.machine_thinking_since == 500
+    assert game.machine_move_at == 500 + MACHINE_THINK_MS

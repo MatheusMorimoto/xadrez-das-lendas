@@ -156,14 +156,16 @@ class InterfaceComponents:
         normalized_rect: tuple[float, float, float, float],
         *,
         glow: tuple[int, int, int],
+        bounds: Any | None = None,
     ) -> Any:
         """Desenha o hover sobre uma placa já presente na arte do menu."""
         x_ratio, y_ratio, width_ratio, height_ratio = normalized_rect
+        bounds = bounds or self.pg.Rect(0, 0, self.width, self.height)
         rect = self.pg.Rect(
-            int(self.width * x_ratio),
-            int(self.height * y_ratio),
-            int(self.width * width_ratio),
-            int(self.height * height_ratio),
+            bounds.left + int(bounds.width * x_ratio),
+            bounds.top + int(bounds.height * y_ratio),
+            int(bounds.width * width_ratio),
+            int(bounds.height * height_ratio),
         )
         if not rect.collidepoint(self.pg.mouse.get_pos()):
             return rect

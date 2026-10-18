@@ -72,3 +72,17 @@ def test_board_orientation_follows_the_active_local_player():
     assert not person.inverted
     person.turn = "preta"
     assert person.inverted
+
+
+def test_every_move_is_added_to_the_match_record():
+    match = VersusMatch("machine", human_color="branca")
+
+    match.play((6, 4), (4, 4))
+    match.play((1, 4), (3, 4))
+
+    assert match.move_history == [
+        "1. Brancas: e2 -> e4",
+        "1. Pretas: e7 -> e5",
+    ]
+    assert match.player_for_color("branca") == "Você"
+    assert match.player_for_color("preta") == "Máquina"

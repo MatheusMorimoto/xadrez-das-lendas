@@ -47,7 +47,12 @@ def all_moves(board: Board, color: Color) -> list[tuple[Square, Square]]:
     ]
 
 
-def choose_machine_move(board: Board, color: Color, level: int, rng: random.Random | None = None) -> tuple[Square, Square]:
+def choose_machine_move(
+    board: Board,
+    color: Color,
+    level: int,
+    rng: random.Random | None = None,
+) -> tuple[Square, Square]:
     rng = rng or random.Random()
     moves = all_moves(board, color)
     if not moves:
@@ -67,7 +72,7 @@ def choose_machine_move(board: Board, color: Color, level: int, rng: random.Rand
         if level >= 3:
             replies = all_moves(simulation, opponent(color))
             worst_loss = 0
-            for reply_origin, reply_target in replies:
+            for _reply_origin, reply_target in replies:
                 reply_capture = simulation.piece_at(reply_target)
                 if reply_capture is not None:
                     worst_loss = max(worst_loss, PIECE_VALUE[reply_capture.tipo])
@@ -92,11 +97,14 @@ class VersusMatch:
     hints_left: int = 3
     halfmove_clock: int = 0
     position_history: list[tuple] | None = None
+    move_history: list[str] | None = None
+    recorded: bool = False
 
     def __post_init__(self) -> None:
         self.board = self.board or standard_board()
         self.valid_moves = self.valid_moves or []
         self.position_history = self.position_history or [self._position_key()]
+        self.move_history = self.move_history or []
 
     @property
     def inverted(self) -> bool:
@@ -112,6 +120,9 @@ class VersusMatch:
         )
         pawn_move = moving is not None and moving.tipo == "peao"
         moved = apply_legal_move(self.board, origin, target)
+        move_number = len(self.move_history) // 2 + 1
+        color_name = "Brancas" if moved.cor == "branca" else "Pretas"
+        self.move_history.append(f"{move_number}. {color_name}: {notation(origin)} -> {notation(target)}")
         self.halfmove_clock = 0 if pawn_move or capture else self.halfmove_clock + 1
         self.turn = opponent(self.turn)
         self.position_history.append(self._position_key())
@@ -146,6 +157,17 @@ class VersusMatch:
         move = choose_machine_move(self.board, self.turn, 3)
         self.message = f"Dica: {notation(move[0])} → {notation(move[1])} ({self.hints_left} restantes)"
         return move
+
+    def player_for_color(self, color: Color) -> str:
+        if self.mode == "machine":
+            return "Você" if color == self.human_color else "Máquina"
+        return "Jogador 1" if color == self.player_one_color else "Jogador 2"
+
+    @property
+    def winner(self) -> str | None:
+        if not self.finished or not self.message.startswith("Xeque-mate"):
+            return None
+        return self.player_for_color(opponent(self.turn))
 
     def _position_key(self) -> tuple:
         assert self.board is not None

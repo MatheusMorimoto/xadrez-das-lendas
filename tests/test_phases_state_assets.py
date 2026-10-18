@@ -9,7 +9,7 @@ def all_required_assets():
     names |= {video for phase in PHASES.values() for video in phase.videos}
     names |= {phase.victory_image for phase in PHASES.values() if phase.victory_image}
     names |= {f"{video.removesuffix('.mp4')}.ogg" for phase in PHASES.values() for video in phase.videos}
-    names.add("tela_inicio.png")
+    names.add("tela_inicio.jpeg")
     return names
 
 

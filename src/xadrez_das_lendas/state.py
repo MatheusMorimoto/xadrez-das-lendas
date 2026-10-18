@@ -21,6 +21,8 @@ class ScreenState(str, Enum):
     VERSUS_MENU = "versus_menu"
     DIFFICULTY = "difficulty"
     VERSUS_PLAYING = "versus_playing"
+    PODIUM = "podium"
+    MATCH_RECORD = "match_record"
     PLAYING = "playing"
     TRANSITION = "transition"
     VIDEO = "video"
