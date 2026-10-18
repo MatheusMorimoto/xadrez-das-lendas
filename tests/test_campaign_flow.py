@@ -59,15 +59,15 @@ def test_first_phase_victory_image_lasts_ten_seconds():
     assert state.victory_image_ready(10_500)
 
 
-def test_second_phase_image_is_configured_after_video_for_ten_seconds():
+def test_second_phase_uses_only_victory_image_for_ten_seconds():
     state = GameState()
     state.start_phase(2)
 
     assert state.phase.inverted is False
-    assert state.phase.videos == ("YARA.mp4",)
+    assert state.phase.videos == ()
     assert state.phase.victory_image == "Beijo_morte.jpeg"
     assert state.phase.victory_image_ms == 10_000
-    assert state.phase.victory_image_after_videos is True
+    assert state.phase.victory_image_after_videos is False
 
 
 def test_phase_intro_clears_pending_timers_and_starts_selected_phase():

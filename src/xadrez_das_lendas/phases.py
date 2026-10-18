@@ -49,10 +49,8 @@ PHASES: dict[int, Phase] = {
             P(3, 6, "cavalo", "branca", 2),
             P(0, 7, "rei", "preta"),
         ),
-        videos=("YARA.mp4",),
         victory_image="Beijo_morte.jpeg",
         victory_image_ms=10_000,
-        victory_image_after_videos=True,
     ),
     3: Phase(
         3,
